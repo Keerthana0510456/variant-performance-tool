@@ -22,8 +22,12 @@ export function Layout({ children }: LayoutProps) {
       <header className="border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <FlaskConical className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-primary">A/B Test Tool</h1>
+            <img 
+              src="/lovable-uploads/7077138a-52b5-4535-911f-197cef236fc6.png" 
+              alt="Helio Insights Logo" 
+              className="h-8 w-auto"
+            />
+            <h1 className="text-2xl font-bold text-primary">Helio Insights</h1>
           </div>
           
           <nav className="hidden md:flex items-center space-x-6">
