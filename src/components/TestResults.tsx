@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { TestStorage } from '@/lib/storage';
 import { analyzeTestData } from '@/lib/statistics';
 import { ABTest } from '@/types';
-import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle } from 'lucide-react';
+import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -205,7 +206,19 @@ export function TestResults() {
               <div className="flex items-center">
                 <Award className="h-8 w-8 text-primary mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Winner</p>
+                  <div className="flex items-center">
+                    <p className="text-sm font-medium text-muted-foreground">Winner</p>
+                    <TooltipProvider>
+                      <UITooltip>
+                        <TooltipTrigger>
+                          <HelpCircle className="h-3 w-3 ml-1 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>The variant with the highest conversion rate</p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </TooltipProvider>
+                  </div>
                   <p className="text-2xl font-bold">{winningVariant.name}</p>
                 </div>
               </div>
@@ -217,7 +230,19 @@ export function TestResults() {
               <div className="flex items-center">
                 <TrendingUp className="h-8 w-8 text-accent mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Uplift</p>
+                  <div className="flex items-center">
+                    <p className="text-sm font-medium text-muted-foreground">Uplift</p>
+                    <TooltipProvider>
+                      <UITooltip>
+                        <TooltipTrigger>
+                          <HelpCircle className="h-3 w-3 ml-1 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Percentage improvement of variant over control</p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </TooltipProvider>
+                  </div>
                   <p className="text-2xl font-bold">
                     {results.analysis ? `${results.analysis.uplift.toFixed(1)}%` : 'N/A'}
                   </p>
@@ -231,7 +256,19 @@ export function TestResults() {
               <div className="flex items-center">
                 <BarChart3 className="h-8 w-8 text-warning mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">P-Value</p>
+                  <div className="flex items-center">
+                    <p className="text-sm font-medium text-muted-foreground">P-Value</p>
+                    <TooltipProvider>
+                      <UITooltip>
+                        <TooltipTrigger>
+                          <HelpCircle className="h-3 w-3 ml-1 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Probability of seeing this result by chance. Lower is better (p &lt; 0.05 for significance)</p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </TooltipProvider>
+                  </div>
                   <p className="text-2xl font-bold">
                     {results.analysis ? results.analysis.pValue.toFixed(4) : 'N/A'}
                   </p>

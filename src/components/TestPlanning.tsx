@@ -79,10 +79,47 @@ export function TestPlanning({ testId }: TestPlanningProps) {
   };
 
   const handleSave = () => {
+    // Enhanced validation
     if (!formData.name.trim()) {
       toast({
         title: "Error",
         description: "Please enter a test name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.h0.trim() || !formData.h1.trim()) {
+      toast({
+        title: "Error", 
+        description: "Both hypotheses (H0 and H1) are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.controlRate <= 0 || formData.controlRate >= 1) {
+      toast({
+        title: "Error",
+        description: "Control conversion rate must be between 0% and 100%",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.variantRate <= 0 || formData.variantRate >= 1) {
+      toast({
+        title: "Error",
+        description: "Variant conversion rate must be between 0% and 100%", 
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.trafficPerDay <= 0) {
+      toast({
+        title: "Error",
+        description: "Traffic per day must be greater than 0",
         variant: "destructive"
       });
       return;
@@ -162,24 +199,26 @@ export function TestPlanning({ testId }: TestPlanningProps) {
             </div>
 
             <div>
-              <Label htmlFor="h0">Null Hypothesis (H0)</Label>
+              <Label htmlFor="h0">Null Hypothesis (H0) *</Label>
               <Textarea
                 id="h0"
                 value={formData.h0}
                 onChange={(e) => handleInputChange('h0', e.target.value)}
                 placeholder="e.g., There is no difference in conversion rates between variants"
                 disabled={!isEditing && !!testId}
+                required
               />
             </div>
 
             <div>
-              <Label htmlFor="h1">Alternative Hypothesis (H1)</Label>
+              <Label htmlFor="h1">Alternative Hypothesis (H1) *</Label>
               <Textarea
                 id="h1"
                 value={formData.h1}
                 onChange={(e) => handleInputChange('h1', e.target.value)}
                 placeholder="e.g., Variant B has a higher conversion rate than the control"
                 disabled={!isEditing && !!testId}
+                required
               />
             </div>
 

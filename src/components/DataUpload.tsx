@@ -59,10 +59,14 @@ export function DataUpload({ testId }: DataUploadProps) {
   };
 
   const handleFileUpload = (file: File) => {
-    if (!file.name.endsWith('.csv')) {
+    // Enhanced file validation
+    const validExtensions = ['.csv'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    
+    if (!validExtensions.includes(fileExtension)) {
       toast({
         title: "Error",
-        description: "Please upload a CSV file",
+        description: "Please upload a CSV file only. Other formats (.txt, .xlsx, etc.) are not supported.",
         variant: "destructive"
       });
       return;
@@ -71,7 +75,7 @@ export function DataUpload({ testId }: DataUploadProps) {
     if (file.size > 5 * 1024 * 1024) { // 5MB limit
       toast({
         title: "Error", 
-        description: "File size must be less than 5MB",
+        description: "File size must be less than 5MB. Please reduce file size and try again.",
         variant: "destructive"
       });
       return;
@@ -141,10 +145,21 @@ export function DataUpload({ testId }: DataUploadProps) {
   const handleSave = () => {
     if (!uploadedData || !finalTestId) return;
     
+    // Enhanced column mapping validation
     if (!mappings.variantColumn || !mappings.conversionColumn) {
       toast({
         title: "Error",
-        description: "Please map the variant and conversion columns",
+        description: "Please map both the variant column and conversion column. These are required for analysis.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate column selection - ensure different columns are selected
+    if (mappings.variantColumn === mappings.conversionColumn) {
+      toast({
+        title: "Error",
+        description: "Variant column and conversion column cannot be the same. Please select different columns.",
         variant: "destructive"
       });
       return;
