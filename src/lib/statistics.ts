@@ -94,56 +94,108 @@ export function calculateConfidenceInterval(
   };
 }
 
-// Analyze A/B test data
+// Analyze A/B test data using the new analyzer
 export function analyzeTestData(
   data: any[][],
   variantColumn: number,
-  conversionColumn: number
+  conversionColumn: number,
+  columns: string[]
 ): { variants: VariantResult[]; analysis: StatisticalAnalysis | null } {
-  // Group data by variant
-  const variantGroups: { [key: string]: any[] } = {};
-  
-  data.forEach(row => {
-    const variant = row[variantColumn];
-    if (!variantGroups[variant]) {
-      variantGroups[variant] = [];
+  try {
+    // Import the new analyzer
+    const { analyzeABTestFromUpload } = require('./abTestAnalyzer');
+    
+    const variantColumnName = columns[variantColumn];
+    const conversionColumnName = columns[conversionColumn];
+    
+    const results = analyzeABTestFromUpload(data, variantColumnName, conversionColumnName, columns);
+    
+    // Convert to the expected format
+    const variants: VariantResult[] = [
+      // Add control first
+      {
+        name: results.control.variant,
+        visitors: results.control.visitors,
+        conversions: results.control.conversions,
+        conversionRate: results.control.conversion_rate / 100,
+        confidenceInterval: calculateConfidenceInterval(results.control.conversions, results.control.visitors)
+      },
+      // Add other variants
+      ...results.results.map(result => ({
+        name: result.variant,
+        visitors: result.visitors,
+        conversions: result.conversions,
+        conversionRate: result.conversion_rate / 100,
+        confidenceInterval: calculateConfidenceInterval(result.conversions, result.visitors)
+      }))
+    ];
+    
+    // Create analysis from the winner
+    let analysis: StatisticalAnalysis | null = null;
+    if (results.results.length > 0) {
+      const bestVariant = results.results.reduce((prev, current) => 
+        current.conversion_rate > prev.conversion_rate ? current : prev
+      );
+      
+      analysis = {
+        sampleSize: results.control.visitors + bestVariant.visitors,
+        pValue: bestVariant.p_value,
+        confidenceInterval: {
+          lower: (bestVariant.conversion_rate - results.control.conversion_rate) / 100 - 0.05,
+          upper: (bestVariant.conversion_rate - results.control.conversion_rate) / 100 + 0.05
+        },
+        uplift: bestVariant.uplift,
+        isSignificant: bestVariant.p_value < 0.05
+      };
     }
-    variantGroups[variant].push(row);
-  });
-  
-  // Calculate metrics for each variant
-  const variants: VariantResult[] = Object.entries(variantGroups).map(([name, rows]) => {
-    const visitors = rows.length;
-    const conversions = rows.filter(row => {
-      const conversionValue = row[conversionColumn];
-      return conversionValue === 'Yes' || conversionValue === '1' || conversionValue === 1 || conversionValue === true;
-    }).length;
     
-    const conversionRate = visitors > 0 ? conversions / visitors : 0;
-    const confidenceInterval = calculateConfidenceInterval(conversions, visitors);
+    return { variants, analysis };
+  } catch (error) {
+    console.error('Analysis error:', error);
     
-    return {
-      name,
-      visitors,
-      conversions,
-      conversionRate,
-      confidenceInterval
-    };
-  });
-  
-  // Perform statistical analysis if we have control and at least one variant
-  let analysis: StatisticalAnalysis | null = null;
-  const control = variants.find(v => v.name.toLowerCase().includes('control'));
-  const variant = variants.find(v => !v.name.toLowerCase().includes('control'));
-  
-  if (control && variant) {
-    analysis = twoProportionZTest(
-      control.conversions,
-      control.visitors,
-      variant.conversions,
-      variant.visitors
-    );
+    // Fallback to original analysis
+    const variantGroups: { [key: string]: any[] } = {};
+    
+    data.forEach(row => {
+      const variant = row[variantColumn];
+      if (!variantGroups[variant]) {
+        variantGroups[variant] = [];
+      }
+      variantGroups[variant].push(row);
+    });
+    
+    const variants: VariantResult[] = Object.entries(variantGroups).map(([name, rows]) => {
+      const visitors = rows.length;
+      const conversions = rows.filter(row => {
+        const conversionValue = row[conversionColumn];
+        return conversionValue === 'Yes' || conversionValue === '1' || conversionValue === 1 || conversionValue === true;
+      }).length;
+      
+      const conversionRate = visitors > 0 ? conversions / visitors : 0;
+      const confidenceInterval = calculateConfidenceInterval(conversions, visitors);
+      
+      return {
+        name,
+        visitors,
+        conversions,
+        conversionRate,
+        confidenceInterval
+      };
+    });
+    
+    let analysis: StatisticalAnalysis | null = null;
+    const control = variants.find(v => v.name.toLowerCase().includes('control'));
+    const variant = variants.find(v => !v.name.toLowerCase().includes('control'));
+    
+    if (control && variant) {
+      analysis = twoProportionZTest(
+        control.conversions,
+        control.visitors,
+        variant.conversions,
+        variant.visitors
+      );
+    }
+    
+    return { variants, analysis };
   }
-  
-  return { variants, analysis };
 }

@@ -52,7 +52,8 @@ export function TestResults() {
       const analysis = analyzeTestData(
         testData.data.rows,
         variantColumnIndex,
-        conversionColumnIndex
+        conversionColumnIndex,
+        testData.data.columns
       );
       
       setResults(analysis);
