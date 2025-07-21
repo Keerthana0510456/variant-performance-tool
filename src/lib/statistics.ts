@@ -1,4 +1,5 @@
 import { StatisticalAnalysis, VariantResult } from '@/types';
+import { analyzeABTestFromUpload } from './abTestAnalyzer';
 
 // Calculate sample size for two-proportion z-test
 export function calculateSampleSize(
@@ -122,9 +123,6 @@ export function analyzeTestData(
   columns: string[]
 ): { variants: VariantResult[]; analysis: StatisticalAnalysis | null } {
   try {
-    // Import the new analyzer
-    const { analyzeABTestFromUpload } = require('./abTestAnalyzer');
-    
     const variantColumnName = columns[variantColumn];
     const conversionColumnName = columns[conversionColumn];
     
