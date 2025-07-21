@@ -8,8 +8,11 @@ export function calculateSampleSize(
   beta: number = 0.20, // Type II error (power = 1 - beta = 0.80)
   tailType: 'one-tailed' | 'two-tailed' = 'two-tailed'
 ): number {
-  const zAlpha = tailType === 'two-tailed' ? 1.96 : 1.645; // Critical value for alpha
-  const zBeta = 0.842; // Critical value for beta (80% power)
+  // Calculate critical values based on actual alpha and beta values
+  const zAlpha = tailType === 'two-tailed' 
+    ? normalInverseCDF(1 - alpha/2)  // Two-tailed test
+    : normalInverseCDF(1 - alpha);   // One-tailed test
+  const zBeta = normalInverseCDF(1 - beta); // Critical value for beta
   
   const pooledP = (p1 + p2) / 2;
   const effect = Math.abs(p2 - p1);
@@ -18,6 +21,23 @@ export function calculateSampleSize(
   const denominator = Math.pow(effect, 2);
   
   return Math.ceil(numerator / denominator);
+}
+
+// Normal inverse CDF approximation for critical values
+function normalInverseCDF(p: number): number {
+  if (p <= 0 || p >= 1) return 0;
+  
+  const c0 = 2.515517;
+  const c1 = 0.802853;
+  const c2 = 0.010328;
+  const d1 = 1.432788;
+  const d2 = 0.189269;
+  const d3 = 0.001308;
+  
+  const t = Math.sqrt(-2 * Math.log(p > 0.5 ? 1 - p : p));
+  const z = t - ((c2 * t + c1) * t + c0) / (((d3 * t + d2) * t + d1) * t + 1);
+  
+  return p > 0.5 ? z : -z;
 }
 
 // Calculate estimated test duration
