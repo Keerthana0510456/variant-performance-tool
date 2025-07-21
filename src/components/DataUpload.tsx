@@ -326,7 +326,7 @@ export function DataUpload({ testId }: DataUploadProps) {
                       <SelectValue placeholder="Select customer ID column" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {uploadedData.columns.map((col, index) => (
                         <SelectItem key={index} value={col}>{col}</SelectItem>
                       ))}
@@ -343,7 +343,7 @@ export function DataUpload({ testId }: DataUploadProps) {
                       <SelectValue placeholder="Select date column" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {uploadedData.columns.map((col, index) => (
                         <SelectItem key={index} value={col}>{col}</SelectItem>
                       ))}
