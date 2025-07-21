@@ -29,6 +29,8 @@ export function TestPlanning({ testId }: TestPlanningProps) {
     controlRate: 0.1,
     variantRate: 0.12,
     trafficPerDay: 1000,
+    alpha: 0.05, // Significance level (α)
+    power: 0.8,  // Statistical power (1-β)
   });
 
   const [calculatedMetrics, setCalculatedMetrics] = useState({
@@ -48,6 +50,8 @@ export function TestPlanning({ testId }: TestPlanningProps) {
           controlRate: existingTest.expectedConversionRates.control,
           variantRate: existingTest.expectedConversionRates.variant,
           trafficPerDay: existingTest.trafficPerDay,
+          alpha: 0.05, // Default values for new fields
+          power: 0.8,
         });
       }
     }
@@ -58,8 +62,8 @@ export function TestPlanning({ testId }: TestPlanningProps) {
       const sampleSize = calculateSampleSize(
         formData.controlRate,
         formData.variantRate,
-        0.05,
-        0.20,
+        formData.alpha,
+        1 - formData.power, // Convert power to beta (Type II error)
         formData.tailType
       );
       const duration = calculateTestDuration(sampleSize, formData.trafficPerDay);
@@ -238,6 +242,36 @@ export function TestPlanning({ testId }: TestPlanningProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label htmlFor="alpha">Significance Level (α)</Label>
+              <Input
+                id="alpha"
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="0.20"
+                value={formData.alpha}
+                onChange={(e) => handleInputChange('alpha', parseFloat(e.target.value))}
+                disabled={!isEditing && !!testId}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Typically 0.05 (5%)</p>
+            </div>
+
+            <div>
+              <Label htmlFor="power">Statistical Power (1-β)</Label>
+              <Input
+                id="power"
+                type="number"
+                step="0.01"
+                min="0.50"
+                max="0.99"
+                value={formData.power}
+                onChange={(e) => handleInputChange('power', parseFloat(e.target.value))}
+                disabled={!isEditing && !!testId}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Typically 0.8 (80%)</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -307,7 +341,7 @@ export function TestPlanning({ testId }: TestPlanningProps) {
               <div className="bg-primary/10 p-4 rounded-lg">
                 <div className="text-sm font-medium text-primary mb-1">Required Sample Size</div>
                 <div className="text-2xl font-bold">{calculatedMetrics.sampleSize.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">per variant (95% confidence, 80% power)</div>
+                <div className="text-sm text-muted-foreground">per variant ({(formData.alpha * 100).toFixed(0)}% significance, {(formData.power * 100).toFixed(0)}% power)</div>
               </div>
               
               <div className="bg-accent/10 p-4 rounded-lg">
