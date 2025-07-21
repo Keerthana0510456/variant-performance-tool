@@ -19,6 +19,35 @@ export interface ABTestResults {
   winner?: ABTestData;
 }
 
+// New interface for the detailed A/B test analyzer
+export interface ABTestInputs {
+  groupA: {
+    conversions: number;
+    totalUsers: number;
+  };
+  groupB: {
+    conversions: number;
+    totalUsers: number;
+  };
+  significanceLevel: number; // α (e.g., 0.05)
+  statisticalPower: number; // 1-β (e.g., 0.8)
+}
+
+export interface DetailedABTestResults {
+  pValue: number;
+  requiredSampleSize: number;
+  currentSampleSizeSufficient: boolean;
+  isSignificant: boolean;
+  confidenceInterval: {
+    lower: number;
+    upper: number;
+  };
+  groupARate: number;
+  groupBRate: number;
+  effectSize: number;
+  currentSampleSize: number;
+}
+
 /**
  * Normal CDF approximation for calculating p-values
  */
@@ -219,4 +248,136 @@ function aggregateAndAnalyze(
   ];
 
   return calculateABTest(aggregatedData, 0, 1, 2);
+}
+
+// Inverse normal CDF approximation for z-values
+function normalInverseCDF(p: number): number {
+  if (p <= 0 || p >= 1) throw new Error('p must be between 0 and 1');
+  
+  const c0 = 2.515517;
+  const c1 = 0.802853;
+  const c2 = 0.010328;
+  const d1 = 1.432788;
+  const d2 = 0.189269;
+  const d3 = 0.001308;
+  
+  const t = Math.sqrt(-2 * Math.log(p > 0.5 ? 1 - p : p));
+  const z = t - ((c2 * t + c1) * t + c0) / (((d3 * t + d2) * t + d1) * t + 1);
+  
+  return p > 0.5 ? z : -z;
+}
+
+/**
+ * Detailed A/B Testing Analyzer
+ * Takes specific inputs and returns comprehensive statistical results
+ */
+export function analyzeABTest(inputs: ABTestInputs): DetailedABTestResults {
+  const { groupA, groupB, significanceLevel, statisticalPower } = inputs;
+  
+  // Calculate conversion rates
+  const pA = groupA.conversions / groupA.totalUsers;
+  const pB = groupB.conversions / groupB.totalUsers;
+  
+  // Calculate pooled proportion for z-test
+  const pooledP = (groupA.conversions + groupB.conversions) / (groupA.totalUsers + groupB.totalUsers);
+  
+  // Calculate standard error for z-test
+  const standardError = Math.sqrt(pooledP * (1 - pooledP) * (1/groupA.totalUsers + 1/groupB.totalUsers));
+  
+  // Calculate z-score
+  const zScore = Math.abs(pB - pA) / standardError;
+  
+  // Calculate p-value (two-tailed)
+  const pValue = 2 * (1 - normalCDF(Math.abs(zScore)));
+  
+  // Check if significant
+  const isSignificant = pValue < significanceLevel;
+  
+  // Calculate confidence interval for difference (pB - pA)
+  const zAlpha = normalInverseCDF(1 - significanceLevel/2); // Critical value for confidence interval
+  const seDiff = Math.sqrt((pA * (1 - pA) / groupA.totalUsers) + (pB * (1 - pB) / groupB.totalUsers));
+  const diff = pB - pA;
+  const marginOfError = zAlpha * seDiff;
+  
+  const confidenceInterval = {
+    lower: diff - marginOfError,
+    upper: diff + marginOfError
+  };
+  
+  // Calculate required sample size per group
+  const zBeta = normalInverseCDF(statisticalPower); // Critical value for power
+  const zAlphaForSample = normalInverseCDF(1 - significanceLevel/2);
+  
+  const avgP = (pA + pB) / 2;
+  const effectSize = Math.abs(pB - pA);
+  
+  let requiredSampleSize: number;
+  if (effectSize > 0) {
+    const numerator = Math.pow(
+      zAlphaForSample * Math.sqrt(2 * avgP * (1 - avgP)) + 
+      zBeta * Math.sqrt(pA * (1 - pA) + pB * (1 - pB)), 
+      2
+    );
+    const denominator = Math.pow(effectSize, 2);
+    requiredSampleSize = Math.ceil(numerator / denominator);
+  } else {
+    requiredSampleSize = Infinity; // No effect, infinite sample needed
+  }
+  
+  // Check if current sample size is sufficient
+  const currentSampleSize = Math.min(groupA.totalUsers, groupB.totalUsers);
+  const currentSampleSizeSufficient = currentSampleSize >= requiredSampleSize;
+  
+  return {
+    pValue: Number(pValue.toFixed(6)),
+    requiredSampleSize: isFinite(requiredSampleSize) ? requiredSampleSize : 0,
+    currentSampleSizeSufficient,
+    isSignificant,
+    confidenceInterval: {
+      lower: Number(confidenceInterval.lower.toFixed(6)),
+      upper: Number(confidenceInterval.upper.toFixed(6))
+    },
+    groupARate: Number(pA.toFixed(6)),
+    groupBRate: Number(pB.toFixed(6)),
+    effectSize: Number(effectSize.toFixed(6)),
+    currentSampleSize
+  };
+}
+
+/**
+ * Format A/B test results for display
+ */
+export function formatABTestResults(results: DetailedABTestResults): string {
+  const { 
+    pValue, 
+    requiredSampleSize, 
+    currentSampleSizeSufficient, 
+    isSignificant, 
+    confidenceInterval,
+    groupARate,
+    groupBRate,
+    effectSize,
+    currentSampleSize
+  } = results;
+  
+  return `
+A/B Test Analysis Results:
+========================
+Group A Conversion Rate: ${(groupARate * 100).toFixed(2)}%
+Group B Conversion Rate: ${(groupBRate * 100).toFixed(2)}%
+Effect Size: ${(effectSize * 100).toFixed(2)} percentage points
+
+Statistical Significance:
+- p-value: ${pValue}
+- Is Significant: ${isSignificant ? 'YES' : 'NO'}
+
+Sample Size Analysis:
+- Current Sample Size: ${currentSampleSize} per group
+- Required Sample Size: ${requiredSampleSize} per group
+- Sample Size Sufficient: ${currentSampleSizeSufficient ? 'YES' : 'NO'}
+
+Confidence Interval (95%):
+- Lower Bound: ${(confidenceInterval.lower * 100).toFixed(2)} percentage points
+- Upper Bound: ${(confidenceInterval.upper * 100).toFixed(2)} percentage points
+  `;
 }
