@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { TestStorage } from '@/lib/storage';
 import { analyzeTestData } from '@/lib/statistics';
+import { analyzeData, convertABTestDataToAnalyzerFormat, StatisticalResult } from '@/lib/dynamicStatisticalAnalyzer';
 import { ABTest } from '@/types';
-import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
+import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle, HelpCircle, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -19,13 +22,51 @@ export function TestResults() {
   const { toast } = useToast();
   const [test, setTest] = useState<ABTest | null>(null);
   const [results, setResults] = useState<any>(null);
+  const [dynamicAnalysis, setDynamicAnalysis] = useState<StatisticalResult | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Dynamic statistical parameters
+  const [statisticalParams, setStatisticalParams] = useState({
+    significanceLevel: 0.05,
+    power: 0.8,
+    confidenceLevel: 0.95
+  });
 
   useEffect(() => {
     if (testId) {
       loadTestAndAnalyze();
     }
   }, [testId]);
+
+  // Recalculate dynamic analysis when parameters change
+  useEffect(() => {
+    if (results && results.variants.length >= 2) {
+      performDynamicAnalysis();
+    }
+  }, [statisticalParams, results]);
+
+  const performDynamicAnalysis = () => {
+    if (!results || results.variants.length < 2) return;
+
+    // Get control and variant data
+    const control = results.variants[0];
+    const variant = results.variants[1];
+
+    const { groupA, groupB } = convertABTestDataToAnalyzerFormat(
+      { conversions: control.conversions, totalUsers: control.visitors },
+      { conversions: variant.conversions, totalUsers: variant.visitors }
+    );
+
+    const analysis = analyzeData({
+      groupA,
+      groupB,
+      significanceLevel: statisticalParams.significanceLevel,
+      power: statisticalParams.power,
+      confidenceLevel: statisticalParams.confidenceLevel
+    });
+
+    setDynamicAnalysis(analysis);
+  };
 
   const loadTestAndAnalyze = async () => {
     if (!testId) return;
@@ -265,13 +306,13 @@ export function TestResults() {
                           <HelpCircle className="h-3 w-3 ml-1 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Probability of seeing this result by chance. Lower is better (p &lt; 0.05 for significance)</p>
+                          <p>Probability of seeing this result by chance. Lower is better (p &lt; {statisticalParams.significanceLevel} for significance)</p>
                         </TooltipContent>
                       </UITooltip>
                     </TooltipProvider>
                   </div>
                   <p className="text-2xl font-bold">
-                    {results.analysis ? results.analysis.pValue.toFixed(4) : 'N/A'}
+                    {dynamicAnalysis ? dynamicAnalysis.pValue.toFixed(4) : (results.analysis ? results.analysis.pValue.toFixed(4) : 'N/A')}
                   </p>
                 </div>
               </div>
@@ -281,7 +322,7 @@ export function TestResults() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                {results.analysis?.isSignificant ? (
+                {(dynamicAnalysis?.isSignificant ?? results.analysis?.isSignificant) ? (
                   <CheckCircle className="h-8 w-8 text-success mr-3" />
                 ) : (
                   <XCircle className="h-8 w-8 text-destructive mr-3" />
@@ -289,9 +330,9 @@ export function TestResults() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Significance</p>
                   <p className="text-sm font-bold">
-                    {results.analysis?.isSignificant ? 'Significant' : 'Not Significant'}
+                    {(dynamicAnalysis?.isSignificant ?? results.analysis?.isSignificant) ? 'Significant' : 'Not Significant'}
                   </p>
-                  <p className="text-xs text-muted-foreground">(95% confidence)</p>
+                  <p className="text-xs text-muted-foreground">({(statisticalParams.confidenceLevel * 100).toFixed(0)}% confidence)</p>
                 </div>
               </div>
             </CardContent>
@@ -393,45 +434,172 @@ export function TestResults() {
           </Card>
         </div>
 
-        {/* Statistical Details */}
-        {results.analysis && (
+        {/* Dynamic Statistical Analysis Controls */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Settings className="mr-2 h-5 w-5" />
+              Statistical Parameters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label htmlFor="significanceLevel">Significance Level (α)</Label>
+                <Input
+                  id="significanceLevel"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="0.20"
+                  value={statisticalParams.significanceLevel}
+                  onChange={(e) => setStatisticalParams(prev => ({
+                    ...prev,
+                    significanceLevel: parseFloat(e.target.value) || 0.05
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Typically 0.05 (5%)</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="power">Statistical Power (1-β)</Label>
+                <Input
+                  id="power"
+                  type="number"
+                  step="0.01"
+                  min="0.50"
+                  max="0.99"
+                  value={statisticalParams.power}
+                  onChange={(e) => setStatisticalParams(prev => ({
+                    ...prev,
+                    power: parseFloat(e.target.value) || 0.8
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Typically 0.8 (80%)</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="confidenceLevel">Confidence Level</Label>
+                <Input
+                  id="confidenceLevel"
+                  type="number"
+                  step="0.01"
+                  min="0.80"
+                  max="0.99"
+                  value={statisticalParams.confidenceLevel}
+                  onChange={(e) => setStatisticalParams(prev => ({
+                    ...prev,
+                    confidenceLevel: parseFloat(e.target.value) || 0.95
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Typically 0.95 (95%)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Statistical Analysis */}
+        {dynamicAnalysis && (
           <Card>
             <CardHeader>
-              <CardTitle>Statistical Analysis</CardTitle>
+              <CardTitle>Statistical Analysis & Interpretation</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <h4 className="font-semibold mb-2">Test Parameters</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Significance Level:</span> 5%</p>
-                    <p><span className="font-medium">Power:</span> 80%</p>
-                    <p><span className="font-medium">Tail Type:</span> {test.tailType}</p>
-                    <p><span className="font-medium">Sample Size:</span> {results.analysis.sampleSize.toLocaleString()}</p>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold mb-2">Test Details</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="font-medium">Data Type:</span>
+                        <span className="capitalize">{dynamicAnalysis.dataType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Test Method:</span>
+                        <span>{dynamicAnalysis.testDetails.method}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Test Statistic:</span>
+                        <span>{dynamicAnalysis.testStatistic.toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">P-Value:</span>
+                        <span>{dynamicAnalysis.pValue.toFixed(6)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Effect Size:</span>
+                        <span>{(dynamicAnalysis.effectSize * 100).toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2">Test Parameters</h4>
+                    <div className="space-y-1 text-sm">
+                      <p><span className="font-medium">Significance Level (α):</span> {(statisticalParams.significanceLevel * 100).toFixed(1)}%</p>
+                      <p><span className="font-medium">Statistical Power:</span> {(statisticalParams.power * 100).toFixed(0)}%</p>
+                      <p><span className="font-medium">Confidence Level:</span> {(statisticalParams.confidenceLevel * 100).toFixed(0)}%</p>
+                      <p><span className="font-medium">Sample Size:</span> {results.analysis?.sampleSize?.toLocaleString() || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Results Interpretation</h4>
-                  <div className="space-y-1 text-sm">
-                    <p>
-                      <span className="font-medium">Statistical Significance:</span>{' '}
-                      {results.analysis.isSignificant ? (
-                        <span className="text-success">Yes (p &lt; 0.05)</span>
-                      ) : (
-                        <span className="text-destructive">No (p ≥ 0.05)</span>
-                      )}
-                    </p>
-                    <p>
-                      <span className="font-medium">Confidence Interval:</span>{' '}
-                      [{(results.analysis.confidenceInterval.lower * 100).toFixed(2)}%, {(results.analysis.confidenceInterval.upper * 100).toFixed(2)}%]
-                    </p>
-                    <p className="text-muted-foreground mt-2">
-                      {results.analysis.isSignificant 
-                        ? "The difference in conversion rates is statistically significant. You can be confident that the winning variant performs better."
-                        : "The difference in conversion rates is not statistically significant. Continue testing or increase sample size."}
-                    </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold mb-2">Statistical Decision</h4>
+                    <div className="space-y-2">
+                      <div className={`p-3 rounded-lg ${dynamicAnalysis.isSignificant ? 'bg-success/10 border border-success/20' : 'bg-destructive/10 border border-destructive/20'}`}>
+                        <p className="font-medium">
+                          Decision: <span className={dynamicAnalysis.isSignificant ? 'text-success' : 'text-destructive'}>
+                            {dynamicAnalysis.interpretation.decision === 'reject' ? 'Reject H₀' : 'Fail to Reject H₀'}
+                          </span>
+                        </p>
+                        <p className="text-sm mt-1">{dynamicAnalysis.interpretation.recommendation}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2">Interpretation</h4>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-muted-foreground">
+                        <strong>Null Hypothesis (H₀):</strong> {dynamicAnalysis.testDetails.nullHypothesis}
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Alternative Hypothesis (H₁):</strong> {dynamicAnalysis.testDetails.alternativeHypothesis}
+                      </p>
+                      <div className="bg-muted/50 p-3 rounded-lg mt-3">
+                        <p className="font-medium text-foreground">Plain Language:</p>
+                        <p className="text-muted-foreground mt-1">{dynamicAnalysis.interpretation.plainLanguage}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2">Confidence Interval</h4>
+                    <div className="text-sm">
+                      <p>
+                        <span className="font-medium">Difference:</span>{' '}
+                        [{(dynamicAnalysis.confidenceInterval.lower * 100).toFixed(3)}%, {(dynamicAnalysis.confidenceInterval.upper * 100).toFixed(3)}%]
+                      </p>
+                      <p className="text-muted-foreground mt-1">
+                        With {(statisticalParams.confidenceLevel * 100).toFixed(0)}% confidence, the true difference lies within this range.
+                      </p>
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t">
+                <h4 className="font-semibold mb-2">Assumptions</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  {dynamicAnalysis.testDetails.assumptions.map((assumption, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>{assumption}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </CardContent>
           </Card>
