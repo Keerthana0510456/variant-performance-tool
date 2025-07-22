@@ -90,28 +90,53 @@ export function TestResults() {
       
       setResults(analysis);
       
-      // Update test with results
-      const updatedTest = {
-        ...testData,
-        status: 'completed' as const,
-        completedDate: new Date().toISOString(),
-        results: {
-          summary: {
-            winningVariant: analysis.variants.reduce((prev, current) => 
-              prev.conversionRate > current.conversionRate ? prev : current
-            ).name,
-            confidenceLevel: 95,
-            pValue: analysis.analysis?.pValue || 0,
-            isStatisticallySignificant: analysis.analysis?.isSignificant || false
-          },
-          variants: analysis.variants,
-          uplift: {
-            relative: analysis.analysis?.uplift || 0,
-            absolute: analysis.variants.length > 1 ? 
-              analysis.variants[1].conversionRate - analysis.variants[0].conversionRate : 0
-          }
+    // Update test with results - Use dynamic analysis for winner determination
+    const hasContinuousData = analysis.variants.some(v => v.continuousValues && v.continuousValues.length > 0);
+    
+    let winningVariant: string;
+    if (hasContinuousData) {
+      // For continuous data, determine winner based on statistical significance and mean values
+      if (analysis.analysis?.isSignificant) {
+        const variantMeans = analysis.variants.map(v => ({
+          name: v.name,
+          mean: v.continuousValues ? v.continuousValues.reduce((a, b) => a + b, 0) / v.continuousValues.length : 0
+        }));
+        winningVariant = variantMeans.reduce((prev, current) => 
+          current.mean > prev.mean ? current : prev
+        ).name;
+      } else {
+        winningVariant = 'No significant difference';
+      }
+    } else {
+      // For categorical data, use conversion rate comparison only if significant
+      if (analysis.analysis?.isSignificant) {
+        winningVariant = analysis.variants.reduce((prev, current) => 
+          current.conversionRate > prev.conversionRate ? prev : current
+        ).name;
+      } else {
+        winningVariant = 'No significant difference';
+      }
+    }
+
+    const updatedTest = {
+      ...testData,
+      status: 'completed' as const,
+      completedDate: new Date().toISOString(),
+      results: {
+        summary: {
+          winningVariant,
+          confidenceLevel: 95,
+          pValue: analysis.analysis?.pValue || 0,
+          isStatisticallySignificant: analysis.analysis?.isSignificant || false
+        },
+        variants: analysis.variants,
+        uplift: {
+          relative: analysis.analysis?.uplift || 0,
+          absolute: analysis.variants.length > 1 ? 
+            analysis.variants[1].conversionRate - analysis.variants[0].conversionRate : 0
         }
-      };
+      }
+    };
       
       TestStorage.saveTest(updatedTest);
       setTest(updatedTest);

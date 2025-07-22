@@ -55,6 +55,7 @@ export interface VariantResult {
     lower: number;
     upper: number;
   };
+  continuousValues?: number[];
 }
 
 export interface StatisticalAnalysis {

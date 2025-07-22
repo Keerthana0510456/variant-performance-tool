@@ -1,5 +1,6 @@
 import { StatisticalAnalysis, VariantResult } from '@/types';
 import { analyzeABTestFromUpload } from './abTestAnalyzer';
+import { performDynamicCheck } from './dynamicStatisticalAnalyzer';
 
 // Calculate sample size for two-proportion z-test
 export function calculateSampleSize(
@@ -126,48 +127,112 @@ export function analyzeTestData(
     const variantColumnName = columns[variantColumn];
     const conversionColumnName = columns[conversionColumn];
     
-    const results = analyzeABTestFromUpload(data, variantColumnName, conversionColumnName, columns);
+    // First check if we have continuous data (non-binary values in conversion column)
+    const conversionValues = data.slice(1).map(row => row[conversionColumn]).filter(val => val !== null && val !== undefined);
+    const isContinuous = conversionValues.some(val => {
+      const num = parseFloat(val);
+      return !isNaN(num) && num !== 0 && num !== 1;
+    });
     
-    // Convert to the expected format
-    const variants: VariantResult[] = [
-      // Add control first
-      {
-        name: results.control.variant,
-        visitors: results.control.visitors,
-        conversions: results.control.conversions,
-        conversionRate: results.control.conversion_rate / 100,
-        confidenceInterval: calculateConfidenceInterval(results.control.conversions, results.control.visitors)
-      },
-      // Add other variants
-      ...results.results.map(result => ({
-        name: result.variant,
-        visitors: result.visitors,
-        conversions: result.conversions,
-        conversionRate: result.conversion_rate / 100,
-        confidenceInterval: calculateConfidenceInterval(result.conversions, result.visitors)
-      }))
-    ];
-    
-    // Create analysis from the winner
-    let analysis: StatisticalAnalysis | null = null;
-    if (results.results.length > 0) {
-      const bestVariant = results.results.reduce((prev, current) => 
-        current.conversion_rate > prev.conversion_rate ? current : prev
+    if (isContinuous) {
+      // Handle continuous data
+      const variantGroups: { [key: string]: number[] } = {};
+      
+      data.slice(1).forEach(row => {
+        const variant = row[variantColumn];
+        const value = parseFloat(row[conversionColumn]);
+        
+        if (!isNaN(value)) {
+          if (!variantGroups[variant]) {
+            variantGroups[variant] = [];
+          }
+          variantGroups[variant].push(value);
+        }
+      });
+      
+      const variantNames = Object.keys(variantGroups);
+      if (variantNames.length < 2) {
+        throw new Error('Need at least 2 variants for comparison');
+      }
+      
+      // Prepare variants data
+      const variants: VariantResult[] = variantNames.map(name => ({
+        name,
+        visitors: variantGroups[name].length,
+        conversions: 0, // Not applicable for continuous data
+        conversionRate: 0, // Not applicable for continuous data
+        confidenceInterval: { lower: 0, upper: 0 },
+        continuousValues: variantGroups[name]
+      }));
+      
+      // Use dynamic statistical analysis
+      const dynamicAnalysis = performDynamicCheck(
+        variants.map(v => ({
+          name: v.name,
+          visitors: v.visitors,
+          conversions: 0,
+          conversionRate: 0,
+          continuousValues: v.continuousValues
+        })),
+        { significanceLevel: 0.05, power: 0.8, confidenceLevel: 0.95 }
       );
       
-      analysis = {
-        sampleSize: results.control.visitors + bestVariant.visitors,
-        pValue: bestVariant.p_value,
-        confidenceInterval: {
-          lower: (bestVariant.conversion_rate - results.control.conversion_rate) / 100 - 0.05,
-          upper: (bestVariant.conversion_rate - results.control.conversion_rate) / 100 + 0.05
-        },
-        uplift: bestVariant.uplift,
-        isSignificant: bestVariant.p_value < 0.05
+      // Convert dynamic analysis to legacy format
+      const analysis: StatisticalAnalysis = {
+        sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
+        pValue: dynamicAnalysis.pValue,
+        confidenceInterval: dynamicAnalysis.confidenceInterval,
+        uplift: 0, // Calculate based on means for continuous data
+        isSignificant: dynamicAnalysis.isSignificant
       };
+      
+      return { variants, analysis };
+    } else {
+      // Handle categorical/binary data (existing logic)
+      const results = analyzeABTestFromUpload(data, variantColumnName, conversionColumnName, columns);
+      
+      // Convert to the expected format
+      const variants: VariantResult[] = [
+        // Add control first
+        {
+          name: results.control.variant,
+          visitors: results.control.visitors,
+          conversions: results.control.conversions,
+          conversionRate: results.control.conversion_rate / 100,
+          confidenceInterval: calculateConfidenceInterval(results.control.conversions, results.control.visitors)
+        },
+        // Add other variants
+        ...results.results.map(result => ({
+          name: result.variant,
+          visitors: result.visitors,
+          conversions: result.conversions,
+          conversionRate: result.conversion_rate / 100,
+          confidenceInterval: calculateConfidenceInterval(result.conversions, result.visitors)
+        }))
+      ];
+      
+      // Use dynamic analysis for winner determination instead of static comparison
+      const dynamicAnalysis = performDynamicCheck(
+        variants.map(v => ({
+          name: v.name,
+          visitors: v.visitors,
+          conversions: v.conversions,
+          conversionRate: v.conversionRate
+        })),
+        { significanceLevel: 0.05, power: 0.8, confidenceLevel: 0.95 }
+      );
+      
+      // Create analysis using dynamic results
+      const analysis: StatisticalAnalysis = {
+        sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
+        pValue: dynamicAnalysis.pValue,
+        confidenceInterval: dynamicAnalysis.confidenceInterval,
+        uplift: results.results[0]?.uplift || 0,
+        isSignificant: dynamicAnalysis.isSignificant
+      };
+      
+      return { variants, analysis };
     }
-    
-    return { variants, analysis };
   } catch (error) {
     console.error('Analysis error:', error);
     
