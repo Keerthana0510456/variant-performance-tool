@@ -25,7 +25,7 @@ export function TestResults() {
   const [dynamicAnalysis, setDynamicAnalysis] = useState<(StatisticalResult & { continuousMetrics?: any }) | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Dynamic statistical parameters
+  // Dynamic statistical parameters - update based on test configuration
   const [statisticalParams, setStatisticalParams] = useState({
     significanceLevel: 0.05,
     power: 0.8,
@@ -76,10 +76,20 @@ export function TestResults() {
     }
 
     setTest(testData);
+    
+    // Update statistical parameters from test configuration
+    setStatisticalParams({
+      significanceLevel: testData.alpha || 0.05,
+      power: testData.power || 0.8,
+      confidenceLevel: 0.95
+    });
 
     if (testData.data && testData.data.mappings.variantColumn && testData.data.mappings.conversionColumn) {
       const variantColumnIndex = testData.data.columns.indexOf(testData.data.mappings.variantColumn);
       const conversionColumnIndex = testData.data.columns.indexOf(testData.data.mappings.conversionColumn);
+      
+      console.log('Test alpha:', testData.alpha, 'Test power:', testData.power);
+      console.log('Using significance level:', testData.alpha || 0.05);
       
       const analysis = analyzeTestData(
         testData.data.rows,
@@ -272,6 +282,68 @@ export function TestResults() {
           </Button>
         </div>
       </div>
+
+      {/* Statistical Parameters Control */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Settings className="mr-2 h-4 w-4" />
+            Statistical Parameters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <Label htmlFor="significance">Significance Level (α)</Label>
+              <Input
+                id="significance"
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="0.20"
+                value={statisticalParams.significanceLevel}
+                onChange={(e) => setStatisticalParams(prev => ({ 
+                  ...prev, 
+                  significanceLevel: parseFloat(e.target.value) || 0.05 
+                }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Currently: {(statisticalParams.significanceLevel * 100).toFixed(1)}%</p>
+            </div>
+            <div>
+              <Label htmlFor="power">Statistical Power</Label>
+              <Input
+                id="power"
+                type="number"
+                step="0.01"
+                min="0.50"
+                max="0.99"
+                value={statisticalParams.power}
+                onChange={(e) => setStatisticalParams(prev => ({ 
+                  ...prev, 
+                  power: parseFloat(e.target.value) || 0.8 
+                }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Currently: {(statisticalParams.power * 100).toFixed(0)}%</p>
+            </div>
+            <div>
+              <Label htmlFor="confidence">Confidence Level</Label>
+              <Input
+                id="confidence"
+                type="number"
+                step="0.01"
+                min="0.80"
+                max="0.99"
+                value={statisticalParams.confidenceLevel}
+                onChange={(e) => setStatisticalParams(prev => ({ 
+                  ...prev, 
+                  confidenceLevel: parseFloat(e.target.value) || 0.95 
+                }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Currently: {(statisticalParams.confidenceLevel * 100).toFixed(0)}%</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div id="results-content" className="space-y-6">
         {/* Summary Cards */}
