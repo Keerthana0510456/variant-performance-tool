@@ -294,11 +294,11 @@ export function TestResults() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Significance Level (α)</Label>
               <div className="text-2xl font-bold text-primary">
-                {(statisticalParams.significanceLevel * 100).toFixed(1)}%
+                {statisticalParams.significanceLevel.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">Type I error threshold</p>
             </div>
@@ -308,13 +308,6 @@ export function TestResults() {
                 {(statisticalParams.power * 100).toFixed(0)}%
               </div>
               <p className="text-xs text-muted-foreground">Type II error protection</p>
-            </div>
-            <div>
-              <Label>Confidence Level</Label>
-              <div className="text-2xl font-bold text-primary">
-                {(statisticalParams.confidenceLevel * 100).toFixed(0)}%
-              </div>
-              <p className="text-xs text-muted-foreground">Confidence interval level</p>
             </div>
           </div>
         </CardContent>
@@ -450,19 +443,27 @@ export function TestResults() {
                     </TableCell>
                     <TableCell>{variant.visitors.toLocaleString()}</TableCell>
                     <TableCell>{variant.conversions.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics ? 
-                        `${(index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2)}` : 
-                        `${(variant.conversionRate * 100).toFixed(2)}%`
-                      }
-                    </TableCell>
-                    <TableCell>
-                      {index === 0 ? (
-                        <Badge variant="secondary">Control</Badge>
-                      ) : (
-                        <Badge variant="outline">Variant</Badge>
-                      )}
-                    </TableCell>
+                     {dynamicAnalysis?.dataType !== 'continuous' && (
+                       <TableCell>
+                         {`${(variant.conversionRate * 100).toFixed(2)}%`}
+                       </TableCell>
+                     )}
+                     {dynamicAnalysis?.dataType === 'continuous' && (
+                       <TableCell>
+                         {dynamicAnalysis.continuousMetrics 
+                           ? `${(index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2)}`
+                           : 'N/A'
+                         }
+                       </TableCell>
+                     )}
+                     <TableCell>
+                       {/* Dynamic hypothesis outcome per feature */}
+                       {dynamicAnalysis?.pValue && dynamicAnalysis.pValue < statisticalParams.significanceLevel ? (
+                         <Badge variant="destructive">Reject null hypothesis</Badge>
+                       ) : (
+                         <Badge variant="secondary">Fail to reject null hypothesis</Badge>
+                       )}
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -586,14 +587,25 @@ export function TestResults() {
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
-}
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               
+               {/* Hypothesis Decision Statement */}
+               <div className="mt-6 p-4 bg-muted rounded-lg">
+                 <h4 className="font-semibold mb-2">Hypothesis Decision</h4>
+                 <p className="text-sm">
+                   We <strong>
+                     {(dynamicAnalysis?.pValue && dynamicAnalysis.pValue < statisticalParams.significanceLevel) ? 'reject' : 'fail to reject'}
+                   </strong> the null hypothesis based on the p-value ({dynamicAnalysis?.pValue?.toFixed(4) || 'N/A'}) 
+                   compared to the significance level ({statisticalParams.significanceLevel.toFixed(2)}).
+                 </p>
+               </div>
+             </CardContent>
+           </Card>
+         )}
+       </div>
+     </div>
+   );
+ }
