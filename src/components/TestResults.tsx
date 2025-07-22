@@ -359,7 +359,18 @@ export function TestResults() {
                     </TooltipProvider>
                   </div>
                   <p className="text-2xl font-bold">
-                    {results.analysis ? `${results.analysis.uplift.toFixed(1)}%` : 'N/A'}
+                    {(() => {
+                      if (dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics) {
+                        // Calculate uplift for continuous data: (treatment - control) / control * 100
+                        const controlMean = dynamicAnalysis.continuousMetrics.groupA.mean;
+                        const treatmentMean = dynamicAnalysis.continuousMetrics.groupB.mean;
+                        const uplift = controlMean !== 0 ? ((treatmentMean - controlMean) / controlMean * 100) : 0;
+                        return `${uplift.toFixed(1)}%`;
+                      } else if (results.analysis) {
+                        return `${results.analysis.uplift.toFixed(1)}%`;
+                      }
+                      return 'N/A';
+                    })()}
                   </p>
                 </div>
               </div>
