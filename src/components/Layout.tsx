@@ -24,10 +24,10 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center space-x-4">
             <img 
               src="/lovable-uploads/7077138a-52b5-4535-911f-197cef236fc6.png" 
-              alt="Helio Insights Logo" 
+              alt="A/B Test Tool Logo" 
               className="h-8 w-auto"
             />
-            <h1 className="text-2xl font-bold text-primary">Helio Insights</h1>
+            <h1 className="text-2xl font-bold text-primary">A/B Test Tool</h1>
           </div>
           
           <nav className="hidden md:flex items-center space-x-6">

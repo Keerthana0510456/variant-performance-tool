@@ -330,11 +330,19 @@ export function analyzeData(inputs: StatisticalInputs): StatisticalResult {
   }
 }
 
-// Utility function to convert A/B test data to format needed by analyzer
+// Enhanced function to handle both categorical and continuous data formats
 export function convertABTestDataToAnalyzerFormat(
-  groupAData: { conversions: number; totalUsers: number },
-  groupBData: { conversions: number; totalUsers: number }
+  groupAData: { conversions: number; totalUsers: number; continuousValues?: number[] },
+  groupBData: { conversions: number; totalUsers: number; continuousValues?: number[] }
 ): { groupA: number[]; groupB: number[] } {
+  // If continuous values are provided, use them directly
+  if (groupAData.continuousValues && groupBData.continuousValues) {
+    return { 
+      groupA: groupAData.continuousValues, 
+      groupB: groupBData.continuousValues 
+    };
+  }
+
   // Convert to binary arrays (0 = no conversion, 1 = conversion)
   const groupA: number[] = [
     ...Array(groupAData.conversions).fill(1),
@@ -347,4 +355,95 @@ export function convertABTestDataToAnalyzerFormat(
   ];
   
   return { groupA, groupB };
+}
+
+// Calculate continuous metrics (mean, std dev, etc.) for each group
+export function calculateContinuousMetrics(data: number[]): {
+  mean: number;
+  standardDeviation: number;
+  min: number;
+  max: number;
+  median: number;
+  count: number;
+} {
+  if (data.length === 0) {
+    return { mean: 0, standardDeviation: 0, min: 0, max: 0, median: 0, count: 0 };
+  }
+
+  const sorted = [...data].sort((a, b) => a - b);
+  const meanValue = mean(data);
+  const stdDev = standardDeviation(data);
+  
+  return {
+    mean: meanValue,
+    standardDeviation: stdDev,
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+    median: sorted.length % 2 === 0 
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : sorted[Math.floor(sorted.length / 2)],
+    count: data.length
+  };
+}
+
+// Enhanced analysis function that handles both conversion rates and continuous values
+export function analyzeDynamicABTest(inputs: StatisticalInputs): StatisticalResult & {
+  continuousMetrics?: {
+    groupA: ReturnType<typeof calculateContinuousMetrics>;
+    groupB: ReturnType<typeof calculateContinuousMetrics>;
+  };
+} {
+  const baseResult = analyzeData(inputs);
+  
+  // If data is continuous, also calculate continuous metrics
+  if (baseResult.dataType === 'continuous') {
+    const continuousMetrics = {
+      groupA: calculateContinuousMetrics(inputs.groupA),
+      groupB: calculateContinuousMetrics(inputs.groupB)
+    };
+    
+    return {
+      ...baseResult,
+      continuousMetrics
+    };
+  }
+  
+  return baseResult;
+}
+
+// Dynamic check for conversion rates and continuous values post statistical test
+export function performDynamicCheck(
+  variants: Array<{ name: string; visitors: number; conversions: number; conversionRate: number; continuousValues?: number[] }>,
+  params: { significanceLevel: number; power: number; confidenceLevel: number }
+): StatisticalResult & { continuousMetrics?: any } {
+  if (variants.length < 2) {
+    throw new Error('Need at least 2 variants for comparison');
+  }
+
+  const control = variants[0];
+  const variant = variants[1];
+
+  // Check if we have continuous values
+  const hasContinuousValues = control.continuousValues && variant.continuousValues;
+
+  const { groupA, groupB } = convertABTestDataToAnalyzerFormat(
+    { 
+      conversions: control.conversions, 
+      totalUsers: control.visitors, 
+      continuousValues: control.continuousValues 
+    },
+    { 
+      conversions: variant.conversions, 
+      totalUsers: variant.visitors, 
+      continuousValues: variant.continuousValues 
+    }
+  );
+
+  return analyzeDynamicABTest({
+    groupA,
+    groupB,
+    significanceLevel: params.significanceLevel,
+    power: params.power,
+    confidenceLevel: params.confidenceLevel
+  });
 }
