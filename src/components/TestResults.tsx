@@ -419,17 +419,19 @@ export function TestResults() {
           </CardHeader>
           <CardContent>
             <Table>
-                <TableHeader>
+              <TableHeader>
                 <TableRow>
                   <TableHead>Variant</TableHead>
                   <TableHead>Visitors</TableHead>
-                  <TableHead>Conversions</TableHead>
+                  {dynamicAnalysis?.dataType !== 'continuous' && (
+                    <TableHead>Conversions</TableHead>
+                  )}
                   {dynamicAnalysis?.dataType === 'continuous' ? (
                     <TableHead>{test?.data?.mappings.conversionColumn} - Mean Rate</TableHead>
                   ) : (
                     <TableHead>{test?.data?.mappings.conversionColumn} - Conversion Rate</TableHead>
                   )}
-                  <TableHead>Status</TableHead>
+                  <TableHead>Hypothesis Test</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -442,7 +444,9 @@ export function TestResults() {
                       )}
                     </TableCell>
                     <TableCell>{variant.visitors.toLocaleString()}</TableCell>
-                    <TableCell>{variant.conversions.toLocaleString()}</TableCell>
+                    {dynamicAnalysis?.dataType !== 'continuous' && (
+                      <TableCell>{variant.conversions.toLocaleString()}</TableCell>
+                    )}
                      {dynamicAnalysis?.dataType !== 'continuous' && (
                        <TableCell>
                          {`${(variant.conversionRate * 100).toFixed(2)}%`}
@@ -498,7 +502,11 @@ export function TestResults() {
                       dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : 'Conversion Rate'
                     ]}
                   />
-                  <Bar dataKey="conversionRate" fill="hsl(var(--primary))" />
+                  <Bar dataKey="conversionRate" fill="hsl(var(--primary))">
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -516,7 +524,7 @@ export function TestResults() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
