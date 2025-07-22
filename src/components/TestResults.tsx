@@ -22,7 +22,7 @@ export function TestResults() {
   const { toast } = useToast();
   const [test, setTest] = useState<ABTest | null>(null);
   const [results, setResults] = useState<any>(null);
-  const [dynamicAnalysis, setDynamicAnalysis] = useState<StatisticalResult | null>(null);
+  const [dynamicAnalysis, setDynamicAnalysis] = useState<(StatisticalResult & { continuousMetrics?: any }) | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Dynamic statistical parameters
@@ -193,9 +193,21 @@ export function TestResults() {
     );
   }
 
-  const winningVariant = results.variants.reduce((prev: any, current: any) => 
-    prev.conversionRate > current.conversionRate ? prev : current
-  );
+  // Enhanced winner determination for both continuous and categorical data
+  const winningVariant = (() => {
+    if (dynamicAnalysis?.dataType === 'continuous') {
+      // For continuous data, winner is determined by higher mean if significant
+      if (dynamicAnalysis.isSignificant && dynamicAnalysis.continuousMetrics) {
+        return dynamicAnalysis.continuousMetrics.groupA.mean > dynamicAnalysis.continuousMetrics.groupB.mean 
+          ? results.variants[0] 
+          : results.variants[1];
+      }
+    }
+    // Default to highest conversion rate for binary/categorical data
+    return results.variants.reduce((prev: any, current: any) => 
+      prev.conversionRate > current.conversionRate ? prev : current
+    );
+  })();
 
   const chartData = results.variants.map((variant: any) => ({
     name: variant.name,
@@ -343,7 +355,7 @@ export function TestResults() {
                   <TableHead>Visitors</TableHead>
                   <TableHead>Conversions</TableHead>
                   <TableHead>Conversion Rate</TableHead>
-                  <TableHead>Value</TableHead>
+                  <TableHead>{dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : 'Conversion Rate'}</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -360,8 +372,8 @@ export function TestResults() {
                     <TableCell>{variant.conversions.toLocaleString()}</TableCell>
                     <TableCell>{(variant.conversionRate * 100).toFixed(2)}%</TableCell>
                     <TableCell>
-                      {dynamicAnalysis?.dataType === 'continuous' ? 
-                        `${(variant.conversionRate * 100).toFixed(2)}` : 
+                      {dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics ? 
+                        `${(index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2)}` : 
                         `${(variant.conversionRate * 100).toFixed(2)}%`
                       }
                     </TableCell>

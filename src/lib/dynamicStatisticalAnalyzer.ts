@@ -143,6 +143,9 @@ function welchTTest(groupA: number[], groupB: number[], alpha: number, confidenc
   
   const isSignificant = pValue < alpha;
   
+  // Determine winner for continuous variables
+  const winner = isSignificant ? (meanA > meanB ? 'Group A' : 'Group B') : null;
+  
   return {
     dataType: 'continuous',
     testType: 't-test',
@@ -157,10 +160,10 @@ function welchTTest(groupA: number[], groupB: number[], alpha: number, confidenc
     interpretation: {
       decision: isSignificant ? 'reject' : 'fail_to_reject',
       plainLanguage: isSignificant 
-        ? `There is a statistically significant difference between the groups (p = ${pValue.toFixed(4)}). Group A mean (${meanA.toFixed(2)}) differs significantly from Group B mean (${meanB.toFixed(2)}).`
+        ? `There is a statistically significant difference between the groups (p = ${pValue.toFixed(4)}). Group A mean (${meanA.toFixed(2)}) ${meanA > meanB ? 'is significantly higher than' : 'is significantly lower than'} Group B mean (${meanB.toFixed(2)}). Winner: ${winner}.`
         : `There is no statistically significant difference between the groups (p = ${pValue.toFixed(4)}). The difference between Group A mean (${meanA.toFixed(2)}) and Group B mean (${meanB.toFixed(2)}) could be due to random variation.`,
       recommendation: isSignificant
-        ? 'Reject the null hypothesis. The difference is statistically significant.'
+        ? `Reject the null hypothesis. ${winner} has a statistically significant advantage.`
         : 'Fail to reject the null hypothesis. Consider increasing sample size or the effect may not be meaningful.'
     },
     testDetails: {

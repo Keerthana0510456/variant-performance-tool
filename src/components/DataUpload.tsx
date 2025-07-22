@@ -188,10 +188,11 @@ export function DataUpload({ testId }: DataUploadProps) {
     
     toast({
       title: "Success",
-      description: "Data uploaded and mapped successfully"
+      description: "Data uploaded and mapped successfully. Analysis complete!"
     });
 
-    navigate(`/test/${finalTestId}`);
+    // Navigate to results after analysis completion
+    navigate(`/test/${finalTestId}/results`);
   };
 
   const loadSampleData = () => {
