@@ -12,7 +12,7 @@ import { analyzeData, convertABTestDataToAnalyzerFormat, performDynamicCheck, St
 import { ABTest } from '@/types';
 import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle, HelpCircle, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -431,7 +431,6 @@ export function TestResults() {
                   ) : (
                     <TableHead>{test?.data?.mappings.conversionColumn} - Conversion Rate</TableHead>
                   )}
-                  <TableHead>Hypothesis Test</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,14 +459,6 @@ export function TestResults() {
                          }
                        </TableCell>
                      )}
-                     <TableCell>
-                       {/* Dynamic hypothesis outcome per feature */}
-                       {dynamicAnalysis?.pValue && dynamicAnalysis.pValue < statisticalParams.significanceLevel ? (
-                         <Badge variant="destructive">Reject null hypothesis</Badge>
-                       ) : (
-                         <Badge variant="secondary">Fail to reject null hypothesis</Badge>
-                       )}
-                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -506,6 +497,13 @@ export function TestResults() {
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
+                    <LabelList 
+                      dataKey="conversionRate" 
+                      position="top" 
+                      formatter={(value: any) => 
+                        dynamicAnalysis?.dataType === 'continuous' ? value : `${value}%`
+                      }
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
