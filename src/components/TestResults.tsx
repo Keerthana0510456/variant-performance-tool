@@ -85,7 +85,12 @@ export function TestResults() {
         testData.data.rows,
         variantColumnIndex,
         conversionColumnIndex,
-        testData.data.columns
+        testData.data.columns,
+        {
+          significanceLevel: testData.alpha || 0.05,
+          power: testData.power || 0.8,
+          confidenceLevel: 0.95
+        }
       );
       
       setResults(analysis);

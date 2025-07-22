@@ -121,7 +121,12 @@ export function analyzeTestData(
   data: any[][],
   variantColumn: number,
   conversionColumn: number,
-  columns: string[]
+  columns: string[],
+  statisticalParams?: { 
+    significanceLevel?: number; 
+    power?: number; 
+    confidenceLevel?: number;
+  }
 ): { variants: VariantResult[]; analysis: StatisticalAnalysis | null } {
   try {
     const variantColumnName = columns[variantColumn];
@@ -174,7 +179,11 @@ export function analyzeTestData(
           conversionRate: 0,
           continuousValues: v.continuousValues
         })),
-        { significanceLevel: 0.05, power: 0.8, confidenceLevel: 0.95 }
+        {
+          significanceLevel: statisticalParams?.significanceLevel || 0.05,
+          power: statisticalParams?.power || 0.8,
+          confidenceLevel: statisticalParams?.confidenceLevel || 0.95
+        }
       );
       
       // Convert dynamic analysis to legacy format
@@ -219,7 +228,11 @@ export function analyzeTestData(
           conversions: v.conversions,
           conversionRate: v.conversionRate
         })),
-        { significanceLevel: 0.05, power: 0.8, confidenceLevel: 0.95 }
+        {
+          significanceLevel: statisticalParams?.significanceLevel || 0.05,
+          power: statisticalParams?.power || 0.8,
+          confidenceLevel: statisticalParams?.confidenceLevel || 0.95
+        }
       );
       
       // Create analysis using dynamic results

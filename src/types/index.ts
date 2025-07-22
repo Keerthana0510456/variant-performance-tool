@@ -16,6 +16,8 @@ export interface ABTest {
   status: 'draft' | 'running' | 'completed';
   createdDate: string;
   completedDate?: string;
+  alpha?: number; // Significance level
+  power?: number; // Statistical power
   data?: TestData;
   results?: TestResults;
 }

@@ -50,8 +50,8 @@ export function TestPlanning({ testId }: TestPlanningProps) {
           controlRate: existingTest.expectedConversionRates.control,
           variantRate: existingTest.expectedConversionRates.variant,
           trafficPerDay: existingTest.trafficPerDay,
-          alpha: 0.05, // Default values for new fields
-          power: 0.8,
+          alpha: existingTest.alpha || 0.05, // Use saved value or default
+          power: existingTest.power || 0.8,  // Use saved value or default
         });
       }
     }
@@ -144,6 +144,8 @@ export function TestPlanning({ testId }: TestPlanningProps) {
       trafficPerDay: formData.trafficPerDay,
       sampleSize: calculatedMetrics.sampleSize,
       estimatedDuration: calculatedMetrics.estimatedDuration,
+      alpha: formData.alpha, // Save user's significance level
+      power: formData.power, // Save user's statistical power
       status: 'draft',
       createdDate: testId ? TestStorage.getTest(testId)?.createdDate || new Date().toISOString() : new Date().toISOString(),
     };
