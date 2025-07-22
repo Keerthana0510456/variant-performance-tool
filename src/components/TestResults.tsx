@@ -249,9 +249,11 @@ export function TestResults() {
     );
   })();
 
-  const chartData = results.variants.map((variant: any) => ({
+  const chartData = results.variants.map((variant: any, index: number) => ({
     name: variant.name,
-    conversionRate: (variant.conversionRate * 100).toFixed(2),
+    conversionRate: dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics ? 
+      (index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2) :
+      (variant.conversionRate * 100).toFixed(2),
     conversions: variant.conversions,
     visitors: variant.visitors
   }));
@@ -283,7 +285,7 @@ export function TestResults() {
         </div>
       </div>
 
-      {/* Statistical Parameters Control */}
+      {/* Statistical Parameters Display */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -294,52 +296,25 @@ export function TestResults() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <Label htmlFor="significance">Significance Level (α)</Label>
-              <Input
-                id="significance"
-                type="number"
-                step="0.01"
-                min="0.01"
-                max="0.20"
-                value={statisticalParams.significanceLevel}
-                onChange={(e) => setStatisticalParams(prev => ({ 
-                  ...prev, 
-                  significanceLevel: parseFloat(e.target.value) || 0.05 
-                }))}
-              />
-              <p className="text-xs text-muted-foreground mt-1">Currently: {(statisticalParams.significanceLevel * 100).toFixed(1)}%</p>
+              <Label>Significance Level (α)</Label>
+              <div className="text-2xl font-bold text-primary">
+                {(statisticalParams.significanceLevel * 100).toFixed(1)}%
+              </div>
+              <p className="text-xs text-muted-foreground">Type I error threshold</p>
             </div>
             <div>
-              <Label htmlFor="power">Statistical Power</Label>
-              <Input
-                id="power"
-                type="number"
-                step="0.01"
-                min="0.50"
-                max="0.99"
-                value={statisticalParams.power}
-                onChange={(e) => setStatisticalParams(prev => ({ 
-                  ...prev, 
-                  power: parseFloat(e.target.value) || 0.8 
-                }))}
-              />
-              <p className="text-xs text-muted-foreground mt-1">Currently: {(statisticalParams.power * 100).toFixed(0)}%</p>
+              <Label>Statistical Power</Label>
+              <div className="text-2xl font-bold text-primary">
+                {(statisticalParams.power * 100).toFixed(0)}%
+              </div>
+              <p className="text-xs text-muted-foreground">Type II error protection</p>
             </div>
             <div>
-              <Label htmlFor="confidence">Confidence Level</Label>
-              <Input
-                id="confidence"
-                type="number"
-                step="0.01"
-                min="0.80"
-                max="0.99"
-                value={statisticalParams.confidenceLevel}
-                onChange={(e) => setStatisticalParams(prev => ({ 
-                  ...prev, 
-                  confidenceLevel: parseFloat(e.target.value) || 0.95 
-                }))}
-              />
-              <p className="text-xs text-muted-foreground mt-1">Currently: {(statisticalParams.confidenceLevel * 100).toFixed(0)}%</p>
+              <Label>Confidence Level</Label>
+              <div className="text-2xl font-bold text-primary">
+                {(statisticalParams.confidenceLevel * 100).toFixed(0)}%
+              </div>
+              <p className="text-xs text-muted-foreground">Confidence interval level</p>
             </div>
           </div>
         </CardContent>
@@ -451,13 +426,16 @@ export function TestResults() {
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHeader>
+                <TableHeader>
                 <TableRow>
                   <TableHead>Variant</TableHead>
                   <TableHead>Visitors</TableHead>
                   <TableHead>Conversions</TableHead>
-                  <TableHead>Conversion Rate</TableHead>
-                  <TableHead>{dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : 'Conversion Rate'}</TableHead>
+                  {dynamicAnalysis?.dataType === 'continuous' ? (
+                    <TableHead>{test?.data?.mappings.conversionColumn} - Mean Rate</TableHead>
+                  ) : (
+                    <TableHead>{test?.data?.mappings.conversionColumn} - Conversion Rate</TableHead>
+                  )}
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -472,7 +450,6 @@ export function TestResults() {
                     </TableCell>
                     <TableCell>{variant.visitors.toLocaleString()}</TableCell>
                     <TableCell>{variant.conversions.toLocaleString()}</TableCell>
-                    <TableCell>{(variant.conversionRate * 100).toFixed(2)}%</TableCell>
                     <TableCell>
                       {dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics ? 
                         `${(index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2)}` : 
@@ -497,16 +474,28 @@ export function TestResults() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Conversion Rate Comparison</CardTitle>
+              <CardTitle>
+                {dynamicAnalysis?.dataType === 'continuous' 
+                  ? `${test?.data?.mappings.conversionColumn} - Mean Value Comparison`
+                  : `${test?.data?.mappings.conversionColumn} - Conversion Rate Comparison`
+                }
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis />
+                  <YAxis label={{ 
+                    value: dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : '% Conversion Rate',
+                    angle: -90,
+                    position: 'insideLeft'
+                  }} />
                   <Tooltip 
-                    formatter={(value: any) => [`${value}%`, 'Conversion Rate']}
+                    formatter={(value: any) => [
+                      dynamicAnalysis?.dataType === 'continuous' ? value : `${value}%`,
+                      dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : 'Conversion Rate'
+                    ]}
                   />
                   <Bar dataKey="conversionRate" fill="hsl(var(--primary))" />
                 </BarChart>
@@ -516,7 +505,7 @@ export function TestResults() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Traffic Distribution</CardTitle>
+              <CardTitle>Sample Distribution</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
