@@ -1,6 +1,6 @@
 import { StatisticalAnalysis, VariantResult } from '@/types';
 import { analyzeABTestFromUpload } from './abTestAnalyzer';
-import { performDynamicCheck } from './dynamicStatisticalAnalyzer';
+import { performDynamicCheck } from './apiWrappers';
 
 // Calculate sample size for two-proportion z-test
 export function calculateSampleSize(
@@ -117,7 +117,7 @@ export function calculateConfidenceInterval(
 }
 
 // Analyze A/B test data using the new analyzer
-export function analyzeTestData(
+export async function analyzeTestData(
   data: any[][],
   variantColumn: number,
   conversionColumn: number,
@@ -127,7 +127,7 @@ export function analyzeTestData(
     power?: number; 
     confidenceLevel?: number;
   }
-): { variants: VariantResult[]; analysis: StatisticalAnalysis | null } {
+): Promise<{ variants: VariantResult[]; analysis: StatisticalAnalysis | null }> {
   try {
     const variantColumnName = columns[variantColumn];
     const conversionColumnName = columns[conversionColumn];
@@ -171,7 +171,7 @@ export function analyzeTestData(
       }));
       
       // Use dynamic statistical analysis
-      const dynamicAnalysis = performDynamicCheck(
+      const dynamicAnalysis = await performDynamicCheck(
         variants.map(v => ({
           name: v.name,
           visitors: v.visitors,
@@ -221,7 +221,7 @@ export function analyzeTestData(
       ];
       
       // Use dynamic analysis for winner determination instead of static comparison
-      const dynamicAnalysis = performDynamicCheck(
+      const dynamicAnalysis = await performDynamicCheck(
         variants.map(v => ({
           name: v.name,
           visitors: v.visitors,

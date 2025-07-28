@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TestStorage } from '@/lib/storage';
-import { analyzeTestData } from '@/lib/statistics';
-import { analyzeData, convertABTestDataToAnalyzerFormat, performDynamicCheck, StatisticalResult } from '@/lib/dynamicStatisticalAnalyzer';
+import { analyzeTestData } from '@/lib/apiWrappers';
+import { analyzeData, convertABTestDataToAnalyzerFormat, performDynamicCheck } from '@/lib/apiWrappers';
+import { StatisticalResult } from '@/lib/dynamicStatisticalAnalyzer';
 import { ABTest } from '@/types';
 import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle, HelpCircle, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -45,11 +46,11 @@ export function TestResults() {
     }
   }, [statisticalParams, results]);
 
-  const performDynamicAnalysis = () => {
+  const performDynamicAnalysis = async () => {
     if (!results || results.variants.length < 2) return;
 
     try {
-      const analysis = performDynamicCheck(
+      const analysis = await performDynamicCheck(
         results.variants,
         statisticalParams
       );
@@ -91,7 +92,7 @@ export function TestResults() {
       console.log('Test alpha:', testData.alpha, 'Test power:', testData.power);
       console.log('Using significance level:', testData.alpha || 0.05);
       
-      const analysis = analyzeTestData(
+      const analysis = await analyzeTestData(
         testData.data.rows,
         variantColumnIndex,
         conversionColumnIndex,

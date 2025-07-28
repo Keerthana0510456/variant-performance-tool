@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TestStorage } from '@/lib/storage';
-import { calculateSampleSize, calculateTestDuration } from '@/lib/statistics';
+import { calculateSampleSize, calculateTestDuration } from '@/lib/apiWrappers';
 import { ABTest } from '@/types';
 import { Calculator, Save, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -58,21 +58,29 @@ export function TestPlanning({ testId }: TestPlanningProps) {
   }, [testId]);
 
   useEffect(() => {
-    if (formData.controlRate > 0 && formData.variantRate > 0 && formData.trafficPerDay > 0) {
-      const sampleSize = calculateSampleSize(
-        formData.controlRate,
-        formData.variantRate,
-        formData.alpha,
-        1 - formData.power, // Convert power to beta (Type II error)
-        formData.tailType
-      );
-      const duration = calculateTestDuration(sampleSize, formData.trafficPerDay);
-      
-      setCalculatedMetrics({
-        sampleSize,
-        estimatedDuration: duration,
-      });
-    }
+    const calculateMetrics = async () => {
+      if (formData.controlRate > 0 && formData.variantRate > 0 && formData.trafficPerDay > 0) {
+        try {
+          const sampleSize = await calculateSampleSize(
+            formData.controlRate,
+            formData.variantRate,
+            formData.alpha,
+            1 - formData.power, // Convert power to beta (Type II error)
+            formData.tailType
+          );
+          const duration = await calculateTestDuration(sampleSize, formData.trafficPerDay);
+          
+          setCalculatedMetrics({
+            sampleSize,
+            estimatedDuration: duration,
+          });
+        } catch (error) {
+          console.error('Error calculating metrics:', error);
+        }
+      }
+    };
+    
+    calculateMetrics();
   }, [formData]);
 
   const handleInputChange = (field: string, value: any) => {
