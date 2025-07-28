@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TestStorage } from '@/lib/storage';
-import { calculateSampleSize, calculateTestDuration } from '@/lib/apiWrappers';
+import { calculateSampleSize, calculateTestDuration } from '@/lib/statistics';
 import { ABTest } from '@/types';
 import { Calculator, Save, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';

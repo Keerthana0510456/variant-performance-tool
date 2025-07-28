@@ -1,6 +1,6 @@
 import { StatisticalAnalysis, VariantResult } from '@/types';
 import { analyzeABTestFromUpload } from './abTestAnalyzer';
-import { performDynamicCheck } from './apiWrappers';
+import { performDynamicCheck } from './dynamicStatisticalAnalyzer';
 
 // Calculate sample size for two-proportion z-test
 export function calculateSampleSize(

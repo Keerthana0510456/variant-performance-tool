@@ -13,7 +13,6 @@ export function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/new-test', label: 'New Test', icon: FlaskConical },
-    { path: '/backend-config', label: 'Backend Config', icon: Settings },
     { path: '/about', label: 'About', icon: BarChart3 },
   ];
 
