@@ -1,6 +1,5 @@
 import { StatisticalAnalysis, VariantResult } from '@/types';
 import { analyzeABTestFromUpload } from './abTestAnalyzer';
-import { performDynamicCheck } from './dynamicStatisticalAnalyzer';
 
 // Calculate sample size for two-proportion z-test
 export function calculateSampleSize(
@@ -170,29 +169,13 @@ export async function analyzeTestData(
         continuousValues: variantGroups[name]
       }));
       
-      // Use dynamic statistical analysis
-      const dynamicAnalysis = await performDynamicCheck(
-        variants.map(v => ({
-          name: v.name,
-          visitors: v.visitors,
-          conversions: 0,
-          conversionRate: 0,
-          continuousValues: v.continuousValues
-        })),
-        {
-          significanceLevel: statisticalParams?.significanceLevel || 0.05,
-          power: statisticalParams?.power || 0.8,
-          confidenceLevel: statisticalParams?.confidenceLevel || 0.95
-        }
-      );
-      
-      // Convert dynamic analysis to legacy format
+      // Basic analysis for continuous data
       const analysis: StatisticalAnalysis = {
         sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
-        pValue: dynamicAnalysis.pValue,
-        confidenceInterval: dynamicAnalysis.confidenceInterval,
+        pValue: 0.5, // Default for continuous data without advanced analysis
+        confidenceInterval: { lower: 0, upper: 0 },
         uplift: 0, // Calculate based on means for continuous data
-        isSignificant: dynamicAnalysis.isSignificant
+        isSignificant: false
       };
       
       return { variants, analysis };
@@ -220,29 +203,27 @@ export async function analyzeTestData(
         }))
       ];
       
-      // Use dynamic analysis for winner determination instead of static comparison
-      const dynamicAnalysis = await performDynamicCheck(
-        variants.map(v => ({
-          name: v.name,
-          visitors: v.visitors,
-          conversions: v.conversions,
-          conversionRate: v.conversionRate
-        })),
-        {
-          significanceLevel: statisticalParams?.significanceLevel || 0.05,
-          power: statisticalParams?.power || 0.8,
-          confidenceLevel: statisticalParams?.confidenceLevel || 0.95
-        }
-      );
+      // Use standard two-proportion z-test for analysis
+      const control = variants.find(v => v.name.toLowerCase().includes('control')) || variants[0];
+      const treatment = variants.find(v => !v.name.toLowerCase().includes('control')) || variants[1];
       
-      // Create analysis using dynamic results
-      const analysis: StatisticalAnalysis = {
-        sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
-        pValue: dynamicAnalysis.pValue,
-        confidenceInterval: dynamicAnalysis.confidenceInterval,
-        uplift: results.results[0]?.uplift || 0,
-        isSignificant: dynamicAnalysis.isSignificant
-      };
+      let analysis: StatisticalAnalysis;
+      if (control && treatment && variants.length >= 2) {
+        analysis = twoProportionZTest(
+          control.conversions,
+          control.visitors,
+          treatment.conversions,
+          treatment.visitors
+        );
+      } else {
+        analysis = {
+          sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
+          pValue: 0.5,
+          confidenceInterval: { lower: 0, upper: 0 },
+          uplift: results.results[0]?.uplift || 0,
+          isSignificant: false
+        };
+      }
       
       return { variants, analysis };
     }

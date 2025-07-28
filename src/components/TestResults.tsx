@@ -8,8 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TestStorage } from '@/lib/storage';
 import { analyzeTestData } from '@/lib/statistics';
-import { performDynamicCheck } from '@/lib/dynamicStatisticalAnalyzer';
-import { StatisticalResult } from '@/lib/dynamicStatisticalAnalyzer';
 import { ABTest } from '@/types';
 import { TrendingUp, Download, Share, Award, BarChart3, CheckCircle, XCircle, HelpCircle, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +21,7 @@ export function TestResults() {
   const { toast } = useToast();
   const [test, setTest] = useState<ABTest | null>(null);
   const [results, setResults] = useState<any>(null);
-  const [dynamicAnalysis, setDynamicAnalysis] = useState<(StatisticalResult & { continuousMetrics?: any }) | null>(null);
+  
   const [loading, setLoading] = useState(true);
   
   // Dynamic statistical parameters - update based on test configuration
@@ -39,26 +37,6 @@ export function TestResults() {
     }
   }, [testId]);
 
-  // Recalculate dynamic analysis when parameters change
-  useEffect(() => {
-    if (results && results.variants.length >= 2) {
-      performDynamicAnalysis();
-    }
-  }, [statisticalParams, results]);
-
-  const performDynamicAnalysis = async () => {
-    if (!results || results.variants.length < 2) return;
-
-    try {
-      const analysis = await performDynamicCheck(
-        results.variants,
-        statisticalParams
-      );
-      setDynamicAnalysis(analysis);
-    } catch (error) {
-      console.error('Dynamic analysis error:', error);
-    }
-  };
 
   const loadTestAndAnalyze = async () => {
     if (!testId) return;
@@ -234,27 +212,14 @@ export function TestResults() {
     );
   }
 
-  // Enhanced winner determination for both continuous and categorical data
-  const winningVariant = (() => {
-    if (dynamicAnalysis?.dataType === 'continuous') {
-      // For continuous data, winner is determined by higher mean if significant
-      if (dynamicAnalysis.isSignificant && dynamicAnalysis.continuousMetrics) {
-        return dynamicAnalysis.continuousMetrics.groupA.mean > dynamicAnalysis.continuousMetrics.groupB.mean 
-          ? results.variants[0] 
-          : results.variants[1];
-      }
-    }
-    // Default to highest conversion rate for binary/categorical data
-    return results.variants.reduce((prev: any, current: any) => 
-      prev.conversionRate > current.conversionRate ? prev : current
-    );
-  })();
+  // Winner determination based on conversion rate
+  const winningVariant = results.variants.reduce((prev: any, current: any) => 
+    prev.conversionRate > current.conversionRate ? prev : current
+  );
 
-  const chartData = results.variants.map((variant: any, index: number) => ({
+  const chartData = results.variants.map((variant: any) => ({
     name: variant.name,
-    conversionRate: dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics ? 
-      (index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2) :
-      (variant.conversionRate * 100).toFixed(2),
+    conversionRate: (variant.conversionRate * 100).toFixed(2),
     conversions: variant.conversions,
     visitors: variant.visitors
   }));
@@ -359,20 +324,9 @@ export function TestResults() {
                       </UITooltip>
                     </TooltipProvider>
                   </div>
-                  <p className="text-2xl font-bold">
-                    {(() => {
-                      if (dynamicAnalysis?.dataType === 'continuous' && dynamicAnalysis.continuousMetrics) {
-                        // Calculate uplift for continuous data: (treatment - control) / control * 100
-                        const controlMean = dynamicAnalysis.continuousMetrics.groupA.mean;
-                        const treatmentMean = dynamicAnalysis.continuousMetrics.groupB.mean;
-                        const uplift = controlMean !== 0 ? ((treatmentMean - controlMean) / controlMean * 100) : 0;
-                        return `${uplift.toFixed(1)}%`;
-                      } else if (results.analysis) {
-                        return `${results.analysis.uplift.toFixed(1)}%`;
-                      }
-                      return 'N/A';
-                    })()}
-                  </p>
+                   <p className="text-2xl font-bold">
+                     {results.analysis ? `${results.analysis.uplift.toFixed(1)}%` : 'N/A'}
+                   </p>
                 </div>
               </div>
             </CardContent>
@@ -396,9 +350,9 @@ export function TestResults() {
                       </UITooltip>
                     </TooltipProvider>
                   </div>
-                  <p className="text-2xl font-bold">
-                    {dynamicAnalysis ? dynamicAnalysis.pValue.toFixed(4) : (results.analysis ? results.analysis.pValue.toFixed(4) : 'N/A')}
-                  </p>
+                   <p className="text-2xl font-bold">
+                     {results.analysis ? results.analysis.pValue.toFixed(4) : 'N/A'}
+                   </p>
                 </div>
               </div>
             </CardContent>
@@ -406,20 +360,20 @@ export function TestResults() {
 
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center">
-                {(dynamicAnalysis?.isSignificant ?? results.analysis?.isSignificant) ? (
-                  <CheckCircle className="h-8 w-8 text-success mr-3" />
-                ) : (
-                  <XCircle className="h-8 w-8 text-destructive mr-3" />
-                )}
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Significance</p>
-                  <p className="text-sm font-bold">
-                    {(dynamicAnalysis?.isSignificant ?? results.analysis?.isSignificant) ? 'Significant' : 'Not Significant'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">({(statisticalParams.confidenceLevel * 100).toFixed(0)}% confidence)</p>
-                </div>
-              </div>
+               <div className="flex items-center">
+                 {results.analysis?.isSignificant ? (
+                   <CheckCircle className="h-8 w-8 text-success mr-3" />
+                 ) : (
+                   <XCircle className="h-8 w-8 text-destructive mr-3" />
+                 )}
+                 <div>
+                   <p className="text-sm font-medium text-muted-foreground">Significance</p>
+                   <p className="text-sm font-bold">
+                     {results.analysis?.isSignificant ? 'Significant' : 'Not Significant'}
+                   </p>
+                   <p className="text-xs text-muted-foreground">({(statisticalParams.confidenceLevel * 100).toFixed(0)}% confidence)</p>
+                 </div>
+               </div>
             </CardContent>
           </Card>
         </div>
@@ -432,18 +386,12 @@ export function TestResults() {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Variant</TableHead>
-                  <TableHead>Visitors</TableHead>
-                  {dynamicAnalysis?.dataType !== 'continuous' && (
-                    <TableHead>Conversions</TableHead>
-                  )}
-                  {dynamicAnalysis?.dataType === 'continuous' ? (
-                    <TableHead>{test?.data?.mappings.conversionColumn} - Mean Rate</TableHead>
-                  ) : (
-                    <TableHead>{test?.data?.mappings.conversionColumn} - Conversion Rate</TableHead>
-                  )}
-                </TableRow>
+                 <TableRow>
+                   <TableHead>Variant</TableHead>
+                   <TableHead>Visitors</TableHead>
+                   <TableHead>Conversions</TableHead>
+                   <TableHead>{test?.data?.mappings.conversionColumn} - Conversion Rate</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {results.variants.map((variant: any, index: number) => (
@@ -454,23 +402,11 @@ export function TestResults() {
                         <Badge className="ml-2" variant="default">Winner</Badge>
                       )}
                     </TableCell>
-                    <TableCell>{variant.visitors.toLocaleString()}</TableCell>
-                    {dynamicAnalysis?.dataType !== 'continuous' && (
-                      <TableCell>{variant.conversions.toLocaleString()}</TableCell>
-                    )}
-                     {dynamicAnalysis?.dataType !== 'continuous' && (
-                       <TableCell>
-                         {`${(variant.conversionRate * 100).toFixed(2)}%`}
-                       </TableCell>
-                     )}
-                     {dynamicAnalysis?.dataType === 'continuous' && (
-                       <TableCell>
-                         {dynamicAnalysis.continuousMetrics 
-                           ? `${(index === 0 ? dynamicAnalysis.continuousMetrics.groupA.mean : dynamicAnalysis.continuousMetrics.groupB.mean).toFixed(2)}`
-                           : 'N/A'
-                         }
-                       </TableCell>
-                     )}
+                     <TableCell>{variant.visitors.toLocaleString()}</TableCell>
+                     <TableCell>{variant.conversions.toLocaleString()}</TableCell>
+                     <TableCell>
+                       {`${(variant.conversionRate * 100).toFixed(2)}%`}
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -481,41 +417,33 @@ export function TestResults() {
         {/* Charts */}
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle>
-                {dynamicAnalysis?.dataType === 'continuous' 
-                  ? `${test?.data?.mappings.conversionColumn} - Mean Value Comparison`
-                  : `${test?.data?.mappings.conversionColumn} - Conversion Rate Comparison`
-                }
-              </CardTitle>
-            </CardHeader>
+             <CardHeader>
+               <CardTitle>
+                 {test?.data?.mappings.conversionColumn} - Conversion Rate Comparison
+               </CardTitle>
+             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis label={{ 
-                    value: dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : '% Conversion Rate',
-                    angle: -90,
-                    position: 'insideLeft'
-                  }} />
-                  <Tooltip 
-                    formatter={(value: any) => [
-                      dynamicAnalysis?.dataType === 'continuous' ? value : `${value}%`,
-                      dynamicAnalysis?.dataType === 'continuous' ? 'Mean Value' : 'Conversion Rate'
-                    ]}
-                  />
+                   <YAxis label={{ 
+                     value: '% Conversion Rate',
+                     angle: -90,
+                     position: 'insideLeft'
+                   }} />
+                   <Tooltip 
+                     formatter={(value: any) => [`${value}%`, 'Conversion Rate']}
+                   />
                   <Bar dataKey="conversionRate" fill="hsl(var(--primary))">
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
-                    <LabelList 
-                      dataKey="conversionRate" 
-                      position="top" 
-                      formatter={(value: any) => 
-                        dynamicAnalysis?.dataType === 'continuous' ? value : `${value}%`
-                      }
-                    />
+                     <LabelList 
+                       dataKey="conversionRate" 
+                       position="top" 
+                       formatter={(value: any) => `${value}%`}
+                     />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -550,79 +478,6 @@ export function TestResults() {
           </Card>
         </div>
 
-        {/* Dynamic Statistical Analysis */}
-        {dynamicAnalysis && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Dynamic Statistical Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">Statistical Results</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">Test Method:</span>
-                        <span>{dynamicAnalysis.testDetails.method}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Data Type:</span>
-                        <span className="capitalize">{dynamicAnalysis.dataType}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">P-Value:</span>
-                        <span>{dynamicAnalysis.pValue.toFixed(6)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Effect Size:</span>
-                        <span>{(dynamicAnalysis.effectSize * 100).toFixed(2)}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Significance:</span>
-                        <span className={dynamicAnalysis.isSignificant ? 'text-success' : 'text-destructive'}>
-                          {dynamicAnalysis.isSignificant ? 'Significant' : 'Not Significant'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">Metrics Summary</h4>
-                    <div className="space-y-2">
-                      {results.variants.map((variant: any, index: number) => (
-                        <div key={variant.name} className="text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{variant.name}:</span>
-                            <div className="text-right">
-                              <div>{(variant.conversionRate * 100).toFixed(2)}% conversion</div>
-                              <div className="text-muted-foreground text-xs">
-                                {variant.conversions}/{variant.visitors} users
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                     </div>
-                   </div>
-                 </div>
-               </div>
-               
-               {/* Hypothesis Decision Statement */}
-               <div className="mt-6 p-4 bg-muted rounded-lg">
-                 <h4 className="font-semibold mb-2">Hypothesis Decision</h4>
-                 <p className="text-sm">
-                   We <strong>
-                     {(dynamicAnalysis?.pValue && dynamicAnalysis.pValue < statisticalParams.significanceLevel) ? 'reject' : 'fail to reject'}
-                   </strong> the null hypothesis based on the p-value ({dynamicAnalysis?.pValue?.toFixed(4) || 'N/A'}) 
-                   compared to the significance level ({statisticalParams.significanceLevel.toFixed(2)}).
-                 </p>
-               </div>
-             </CardContent>
-           </Card>
-         )}
        </div>
      </div>
    );
