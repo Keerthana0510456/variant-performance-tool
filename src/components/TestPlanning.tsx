@@ -48,7 +48,7 @@ export function TestPlanning({ testId }: TestPlanningProps) {
           h1: existingTest.hypothesis.h1,
           tailType: existingTest.tailType,
           controlRate: existingTest.expectedConversionRates.control,
-          variantRate: existingTest.expectedConversionRates.variant,
+          variantRate: existingTest.expectedConversionRates.mode,
           trafficPerDay: existingTest.trafficPerDay,
           alpha: existingTest.alpha || 0.05, // Use saved value or default
           power: existingTest.power || 0.8,  // Use saved value or default
@@ -147,7 +147,7 @@ export function TestPlanning({ testId }: TestPlanningProps) {
       tailType: formData.tailType,
       expectedConversionRates: {
         control: formData.controlRate,
-        variant: formData.variantRate,
+        mode: formData.variantRate,
       },
       trafficPerDay: formData.trafficPerDay,
       sampleSize: calculatedMetrics.sampleSize,

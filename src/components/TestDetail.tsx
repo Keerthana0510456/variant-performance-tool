@@ -118,7 +118,7 @@ export function TestDetail() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Variant Rate:</span>
-                      <p className="font-medium">{(test.expectedConversionRates.variant * 100).toFixed(1)}%</p>
+                      <p className="font-medium">{(test.expectedConversionRates.mode * 100).toFixed(1)}%</p>
                     </div>
                   </div>
                 </div>
@@ -174,7 +174,7 @@ export function TestDetail() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Winner</p>
-                    <p className="text-2xl font-bold text-primary">{test.results.summary.winningVariant}</p>
+                    <p className="text-2xl font-bold text-primary">{test.results.summary.winningMode}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Uplift</p>

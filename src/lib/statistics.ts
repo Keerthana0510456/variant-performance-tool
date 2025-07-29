@@ -1,4 +1,4 @@
-import { StatisticalAnalysis, VariantResult } from '@/types';
+import { StatisticalAnalysis, ModeResult } from '@/types';
 import { analyzeABTestFromUpload } from './abTestAnalyzer';
 
 // Calculate sample size for two-proportion z-test
@@ -126,7 +126,7 @@ export async function analyzeTestData(
     power?: number; 
     confidenceLevel?: number;
   }
-): Promise<{ variants: VariantResult[]; analysis: StatisticalAnalysis | null }> {
+): Promise<{ modes: ModeResult[]; analysis: StatisticalAnalysis | null }> {
   try {
     const variantColumnName = columns[variantColumn];
     const conversionColumnName = columns[conversionColumn];
@@ -159,8 +159,8 @@ export async function analyzeTestData(
         throw new Error('Need at least 2 variants for comparison');
       }
       
-      // Prepare variants data
-      const variants: VariantResult[] = variantNames.map(name => ({
+      // Prepare modes data
+      const modes: ModeResult[] = variantNames.map(name => ({
         name,
         visitors: variantGroups[name].length,
         conversions: 0, // Not applicable for continuous data
@@ -171,20 +171,20 @@ export async function analyzeTestData(
       
       // Basic analysis for continuous data
       const analysis: StatisticalAnalysis = {
-        sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
+        sampleSize: modes.reduce((sum, v) => sum + v.visitors, 0),
         pValue: 0.5, // Default for continuous data without advanced analysis
         confidenceInterval: { lower: 0, upper: 0 },
         uplift: 0, // Calculate based on means for continuous data
         isSignificant: false
       };
       
-      return { variants, analysis };
+      return { modes, analysis };
     } else {
       // Handle categorical/binary data (existing logic)
       const results = analyzeABTestFromUpload(data, variantColumnName, conversionColumnName, columns);
       
       // Convert to the expected format
-      const variants: VariantResult[] = [
+      const modes: ModeResult[] = [
         // Add control first
         {
           name: results.control.variant,
@@ -204,11 +204,11 @@ export async function analyzeTestData(
       ];
       
       // Use standard two-proportion z-test for analysis
-      const control = variants.find(v => v.name.toLowerCase().includes('control')) || variants[0];
-      const treatment = variants.find(v => !v.name.toLowerCase().includes('control')) || variants[1];
+      const control = modes.find(v => v.name.toLowerCase().includes('control')) || modes[0];
+      const treatment = modes.find(v => !v.name.toLowerCase().includes('control')) || modes[1];
       
       let analysis: StatisticalAnalysis;
-      if (control && treatment && variants.length >= 2) {
+      if (control && treatment && modes.length >= 2) {
         analysis = twoProportionZTest(
           control.conversions,
           control.visitors,
@@ -217,7 +217,7 @@ export async function analyzeTestData(
         );
       } else {
         analysis = {
-          sampleSize: variants.reduce((sum, v) => sum + v.visitors, 0),
+          sampleSize: modes.reduce((sum, v) => sum + v.visitors, 0),
           pValue: 0.5,
           confidenceInterval: { lower: 0, upper: 0 },
           uplift: results.results[0]?.uplift || 0,
@@ -225,7 +225,7 @@ export async function analyzeTestData(
         };
       }
       
-      return { variants, analysis };
+      return { modes, analysis };
     }
   } catch (error) {
     console.error('Analysis error:', error);
@@ -241,7 +241,7 @@ export async function analyzeTestData(
       variantGroups[variant].push(row);
     });
     
-    const variants: VariantResult[] = Object.entries(variantGroups).map(([name, rows]) => {
+    const modes: ModeResult[] = Object.entries(variantGroups).map(([name, rows]) => {
       const visitors = rows.length;
       const conversions = rows.filter(row => {
         const conversionValue = row[conversionColumn];
@@ -261,18 +261,18 @@ export async function analyzeTestData(
     });
     
     let analysis: StatisticalAnalysis | null = null;
-    const control = variants.find(v => v.name.toLowerCase().includes('control'));
-    const variant = variants.find(v => !v.name.toLowerCase().includes('control'));
+    const control = modes.find(v => v.name.toLowerCase().includes('control'));
+    const mode = modes.find(v => !v.name.toLowerCase().includes('control'));
     
-    if (control && variant) {
+    if (control && mode) {
       analysis = twoProportionZTest(
         control.conversions,
         control.visitors,
-        variant.conversions,
-        variant.visitors
+        mode.conversions,
+        mode.visitors
       );
     }
     
-    return { variants, analysis };
+    return { modes, analysis };
   }
 }

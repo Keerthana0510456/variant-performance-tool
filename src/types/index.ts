@@ -8,7 +8,7 @@ export interface ABTest {
   tailType: 'one-tailed' | 'two-tailed';
   expectedConversionRates: {
     control: number;
-    variant: number;
+    mode: number;
   };
   trafficPerDay: number;
   sampleSize: number;
@@ -27,7 +27,7 @@ export interface TestData {
   columns: string[];
   rows: any[][];
   mappings: {
-    variantColumn?: string;
+    modeColumn?: string;
     conversionColumn?: string;
     customerIdColumn?: string;
     dateColumn?: string;
@@ -36,19 +36,19 @@ export interface TestData {
 
 export interface TestResults {
   summary: {
-    winningVariant: string;
+    winningMode: string;
     confidenceLevel: number;
     pValue: number;
     isStatisticallySignificant: boolean;
   };
-  variants: VariantResult[];
+  modes: ModeResult[];
   uplift: {
     relative: number;
     absolute: number;
   };
 }
 
-export interface VariantResult {
+export interface ModeResult {
   name: string;
   visitors: number;
   conversions: number;

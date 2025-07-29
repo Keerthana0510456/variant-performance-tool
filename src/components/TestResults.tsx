@@ -63,8 +63,8 @@ export function TestResults() {
       confidenceLevel: 0.95
     });
 
-    if (testData.data && testData.data.mappings.variantColumn && testData.data.mappings.conversionColumn) {
-      const variantColumnIndex = testData.data.columns.indexOf(testData.data.mappings.variantColumn);
+    if (testData.data && testData.data.mappings.modeColumn && testData.data.mappings.conversionColumn) {
+      const modeColumnIndex = testData.data.columns.indexOf(testData.data.mappings.modeColumn);
       const conversionColumnIndex = testData.data.columns.indexOf(testData.data.mappings.conversionColumn);
       
       console.log('Test alpha:', testData.alpha, 'Test power:', testData.power);
@@ -72,7 +72,7 @@ export function TestResults() {
       
       const analysis = await analyzeTestData(
         testData.data.rows,
-        variantColumnIndex,
+        modeColumnIndex,
         conversionColumnIndex,
         testData.data.columns,
         {
@@ -85,30 +85,30 @@ export function TestResults() {
       setResults(analysis);
       
     // Update test with results - Use dynamic analysis for winner determination
-    const hasContinuousData = analysis.variants.some(v => v.continuousValues && v.continuousValues.length > 0);
+    const hasContinuousData = analysis.modes.some(v => v.continuousValues && v.continuousValues.length > 0);
     
-    let winningVariant: string;
+    let winningMode: string;
     if (hasContinuousData) {
       // For continuous data, determine winner based on statistical significance and mean values
       if (analysis.analysis?.isSignificant) {
-        const variantMeans = analysis.variants.map(v => ({
+        const modeMeans = analysis.modes.map(v => ({
           name: v.name,
           mean: v.continuousValues ? v.continuousValues.reduce((a, b) => a + b, 0) / v.continuousValues.length : 0
         }));
-        winningVariant = variantMeans.reduce((prev, current) => 
+        winningMode = modeMeans.reduce((prev, current) => 
           current.mean > prev.mean ? current : prev
         ).name;
       } else {
-        winningVariant = 'No significant difference';
+        winningMode = 'No significant difference';
       }
     } else {
       // For categorical data, use conversion rate comparison only if significant
       if (analysis.analysis?.isSignificant) {
-        winningVariant = analysis.variants.reduce((prev, current) => 
+        winningMode = analysis.modes.reduce((prev, current) => 
           current.conversionRate > prev.conversionRate ? prev : current
         ).name;
       } else {
-        winningVariant = 'No significant difference';
+        winningMode = 'No significant difference';
       }
     }
 
@@ -118,16 +118,16 @@ export function TestResults() {
       completedDate: new Date().toISOString(),
       results: {
         summary: {
-          winningVariant,
+          winningMode,
           confidenceLevel: 95,
           pValue: analysis.analysis?.pValue || 0,
           isStatisticallySignificant: analysis.analysis?.isSignificant || false
         },
-        variants: analysis.variants,
+        modes: analysis.modes,
         uplift: {
           relative: analysis.analysis?.uplift || 0,
-          absolute: analysis.variants.length > 1 ? 
-            analysis.variants[1].conversionRate - analysis.variants[0].conversionRate : 0
+          absolute: analysis.modes.length > 1 ? 
+            analysis.modes[1].conversionRate - analysis.modes[0].conversionRate : 0
         }
       }
     };
@@ -213,20 +213,20 @@ export function TestResults() {
   }
 
   // Winner determination based on conversion rate
-  const winningVariant = results.variants.reduce((prev: any, current: any) => 
+  const winningMode = results.modes.reduce((prev: any, current: any) => 
     prev.conversionRate > current.conversionRate ? prev : current
   );
 
-  const chartData = results.variants.map((variant: any) => ({
-    name: variant.name,
-    conversionRate: (variant.conversionRate * 100).toFixed(2),
-    conversions: variant.conversions,
-    visitors: variant.visitors
+  const chartData = results.modes.map((mode: any) => ({
+    name: mode.name,
+    conversionRate: (mode.conversionRate * 100).toFixed(2),
+    conversions: mode.conversions,
+    visitors: mode.visitors
   }));
 
-  const trafficData = results.variants.map((variant: any, index: number) => ({
-    name: variant.name,
-    value: variant.visitors,
+  const trafficData = results.modes.map((mode: any, index: number) => ({
+    name: mode.name,
+    value: mode.visitors,
     color: index === 0 ? '#8884d8' : '#82ca9d'
   }));
 
@@ -300,7 +300,7 @@ export function TestResults() {
                       </UITooltip>
                     </TooltipProvider>
                   </div>
-                  <p className="text-2xl font-bold">{winningVariant.name}</p>
+                  <p className="text-2xl font-bold">{winningMode.name}</p>
                 </div>
               </div>
             </CardContent>
@@ -393,23 +393,23 @@ export function TestResults() {
                    <TableHead>{test?.data?.mappings.conversionColumn} - Conversion Rate</TableHead>
                  </TableRow>
               </TableHeader>
-              <TableBody>
-                {results.variants.map((variant: any, index: number) => (
-                  <TableRow key={variant.name}>
-                    <TableCell className="font-medium">
-                      {variant.name}
-                      {variant.name === winningVariant.name && (
-                        <Badge className="ml-2" variant="default">Winner</Badge>
-                      )}
-                    </TableCell>
-                     <TableCell>{variant.visitors.toLocaleString()}</TableCell>
-                     <TableCell>{variant.conversions.toLocaleString()}</TableCell>
-                     <TableCell>
-                       {`${(variant.conversionRate * 100).toFixed(2)}%`}
+               <TableBody>
+                 {results.modes.map((mode: any, index: number) => (
+                   <TableRow key={mode.name}>
+                     <TableCell className="font-medium">
+                       {mode.name}
+                       {mode.name === winningMode.name && (
+                         <Badge className="ml-2" variant="default">Winner</Badge>
+                       )}
                      </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                      <TableCell>{mode.visitors.toLocaleString()}</TableCell>
+                      <TableCell>{mode.conversions.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {`${(mode.conversionRate * 100).toFixed(2)}%`}
+                      </TableCell>
+                   </TableRow>
+                 ))}
+               </TableBody>
             </Table>
           </CardContent>
         </Card>

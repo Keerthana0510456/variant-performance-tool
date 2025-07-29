@@ -129,7 +129,7 @@ export function Dashboard() {
                   </div>
                   {test.results && (
                     <div className="text-sm">
-                      <span className="font-medium">Winner:</span> {test.results.summary.winningVariant}
+                      <span className="font-medium">Winner:</span> {test.results.summary.winningMode}
                     </div>
                   )}
                 </div>
